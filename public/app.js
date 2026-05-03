@@ -4,7 +4,6 @@
 const BACKEND_URL = "https://pulinjika.onrender.com";
 let socket;
 
-// Persistent User Identity (Survives Refresh)
 if (!localStorage.getItem('pulinjika_uid')) {
     localStorage.setItem('pulinjika_uid', 'user_' + Math.random().toString(36).substr(2, 9));
 }
@@ -12,13 +11,14 @@ const PERSISTENT_UID = localStorage.getItem('pulinjika_uid');
 
 try {
     socket = io(BACKEND_URL, {
-        query: { userId: PERSISTENT_UID }
+        query: { userId: PERSISTENT_UID },
+        reconnection: true,
+        reconnectionAttempts: 5
     });
 } catch (e) {
     console.error("Socket.io failed to initialize", e);
 }
 
-// IMPORTANT: Real App ID from agora.io
 const AGORA_APP_ID = "0c90d8dfbde2474e9731c1d3738d6bda"; 
 
 // ================================================
@@ -124,23 +124,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const splash = document.getElementById('splash-screen');
     const lobby = document.getElementById('lobby-screen');
     
-    // Auto-rejoin check
     const savedPasskey = localStorage.getItem('pulinjika_last_room');
     const savedName = localStorage.getItem('pulinjika_last_name');
 
-    setTimeout(() => {
+    const finishLoading = () => {
         if (splash) splash.classList.add('fade-out');
         setTimeout(() => {
             if (splash) splash.style.display = 'none';
             if (savedPasskey && savedName) {
-                // Attempting auto-rejoin
                 currentUser.name = savedName;
-                if (socket) socket.emit('join-room', { name: savedName, passkey: savedPasskey });
+                // Wait for socket to be ready before rejoining
+                if (socket.connected) {
+                    socket.emit('join-room', { name: savedName, passkey: savedPasskey });
+                } else {
+                    socket.once('connect', () => {
+                        socket.emit('join-room', { name: savedName, passkey: savedPasskey });
+                    });
+                }
             } else {
                 if (lobby) lobby.classList.remove('hidden');
             }
         }, 500);
-    }, 2500);
+    };
+
+    // Splash screen timer
+    setTimeout(finishLoading, 2500);
 });
 
 // ================================================
@@ -151,11 +159,8 @@ if (socket) {
         activePasskey = room.passkey;
         hostId = room.hostId;
         currentUser.role = 'speaker';
-        
-        // Persist room for auto-rejoin
         localStorage.setItem('pulinjika_last_room', room.passkey);
         localStorage.setItem('pulinjika_last_name', currentUser.name);
-
         document.getElementById('passkey-code').textContent = room.passkey;
         document.getElementById('room-passkey-badge').textContent = room.passkey;
         document.getElementById('room-title-display').textContent = room.title;
@@ -168,11 +173,8 @@ if (socket) {
     socket.on('join-success', (data) => {
         activePasskey = data.passkey;
         hostId = data.hostId;
-        
-        // Persist room for auto-rejoin
         localStorage.setItem('pulinjika_last_room', data.passkey);
         localStorage.setItem('pulinjika_last_name', currentUser.name);
-
         document.getElementById('room-title-display').textContent = data.roomTitle;
         document.getElementById('room-passkey-badge').textContent = data.passkey;
         enterRoom();
@@ -226,9 +228,11 @@ if (socket) {
     });
 
     socket.on('error', (msg) => {
-        localStorage.removeItem('pulinjika_last_room');
         showToast(msg, "❌");
-        document.getElementById('lobby-screen').classList.remove('hidden');
+        if (msg.includes("Invalid")) {
+            localStorage.removeItem('pulinjika_last_room');
+            document.getElementById('lobby-screen').classList.remove('hidden');
+        }
     });
 }
 
