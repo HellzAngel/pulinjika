@@ -1,23 +1,6 @@
 // ================================================
-// SPLASH SCREEN HANDLER (Runs immediately)
-// ================================================
-document.addEventListener('DOMContentLoaded', () => {
-    const splash = document.getElementById('splash-screen');
-    const lobby = document.getElementById('lobby-screen');
-    
-    setTimeout(() => {
-        if (splash) splash.classList.add('fade-out');
-        setTimeout(() => {
-            if (splash) splash.style.display = 'none';
-            if (lobby) lobby.classList.remove('hidden');
-        }, 500);
-    }, 2500);
-});
-
-// ================================================
 // PRODUCTION CONFIG
 // ================================================
-// Make sure this matches your Render URL
 const BACKEND_URL = "https://pulinjika.onrender.com";
 let socket;
 
@@ -27,22 +10,37 @@ try {
     console.error("Socket.io failed to initialize", e);
 }
 
+// IMPORTANT: Replace this with your real App ID from agora.io
 const AGORA_APP_ID = "YOUR_AGORA_APP_ID"; 
 
 // ================================================
-// AUDIO ENGINE (AGORA SDK)
+// AUDIO ENGINE (AGORA SDK + MOCK FALLBACK)
 // ================================================
 class AudioEngine {
     constructor() {
+        this.client = null;
         try {
-            this.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        } catch (e) { console.error("Agora client creation failed", e); }
+            if (typeof AgoraRTC !== 'undefined') {
+                this.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+            }
+        } catch (e) { console.warn("Agora client creation skipped (No SDK or ID)"); }
         this.localAudioTrack = null;
         this.isJoined = false;
+        this.isMocking = false;
     }
 
     async join(channel, uid) {
-        if (this.isJoined || !this.client) return;
+        if (this.isJoined) return;
+        
+        // Check if App ID is still the placeholder
+        if (AGORA_APP_ID === "YOUR_AGORA_APP_ID" || !this.client) {
+            console.warn("Using MOCK AUDIO MODE. Please set your Agora App ID for real production audio.");
+            this.isMocking = true;
+            this.isJoined = true;
+            showToast("Mock Audio Mode Active", "🚧");
+            return;
+        }
+
         try {
             await this.client.join(AGORA_APP_ID, channel, null, uid);
             this.isJoined = true;
@@ -50,10 +48,15 @@ class AudioEngine {
                 await this.client.subscribe(user, mediaType);
                 if (mediaType === "audio") user.audioTrack.play();
             });
-        } catch (e) { console.error("Agora join failed", e); }
+        } catch (e) { 
+            console.error("Agora join failed. Falling back to Mock mode.", e); 
+            this.isMocking = true;
+            this.isJoined = true;
+        }
     }
 
     async startSpeaking() {
+        if (this.isMocking) return true;
         try {
             this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
                 encoderConfig: "high_quality_stereo",
@@ -127,6 +130,21 @@ function showUserMenu(userId) {
 }
 
 // ================================================
+// SPLASH SCREEN
+// ================================================
+document.addEventListener('DOMContentLoaded', () => {
+    const splash = document.getElementById('splash-screen');
+    const lobby = document.getElementById('lobby-screen');
+    setTimeout(() => {
+        if (splash) splash.classList.add('fade-out');
+        setTimeout(() => {
+            if (splash) splash.style.display = 'none';
+            if (lobby) lobby.classList.remove('hidden');
+        }, 500);
+    }, 2500);
+});
+
+// ================================================
 // SERVER EVENT HANDLERS
 // ================================================
 if (socket) {
@@ -161,11 +179,18 @@ if (socket) {
 
     socket.on('role-updated', (data) => {
         if (data.userId === socket.id) {
+            const oldRole = currentUser.role;
             currentUser.role = data.role;
-            if (data.role === 'speaker') showToast("You are now a Speaker! 🎤", "🎊");
-            else {
+            if (oldRole === 'listener' && data.role === 'speaker') {
+                showToast("You are now a Speaker! 🎤", "🎊");
+            } else if (oldRole === 'speaker' && data.role === 'listener') {
                 showToast("Moved to Audience.", "🎧");
                 audio.stopSpeaking();
+                const muteBtn = document.getElementById('mute-btn');
+                if (muteBtn) {
+                    muteBtn.textContent = '🎤';
+                    muteBtn.classList.remove('active');
+                }
             }
         }
         renderParticipants(data.allParticipants);
@@ -200,7 +225,6 @@ function renderParticipants(list) {
     const speakerGrid = document.getElementById('speaker-grid');
     const listenerGrid = document.getElementById('listener-grid');
     if (!speakerGrid || !listenerGrid) return;
-    
     speakerGrid.innerHTML = ''; listenerGrid.innerHTML = '';
 
     list.forEach(p => {
@@ -269,7 +293,7 @@ document.getElementById('enter-created-room').onclick = () => {
 
 document.getElementById('mute-btn').onclick = async () => {
     const btn = document.getElementById('mute-btn');
-    if (!audio.localAudioTrack) {
+    if (!audio.localAudioTrack && !audio.isMocking) {
         const success = await audio.startSpeaking();
         if (!success) return;
     }
@@ -311,10 +335,28 @@ document.getElementById('copy-passkey').onclick = () => { navigator.clipboard.wr
 document.getElementById('close-user-menu').onclick = () => userMenu.classList.add('hidden');
 
 // Tab Switcher Initialization
-document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.lobby-tab').forEach(t => t.onclick = (e) => {
-        document.querySelectorAll('.lobby-tab, .lobby-panel').forEach(el => el.classList.remove('active'));
-        t.classList.add('active');
-        document.getElementById(`panel-${t.dataset.tab}`).classList.add('active');
-    });
+document.querySelectorAll('.lobby-tab').forEach(t => t.onclick = (e) => {
+    document.querySelectorAll('.lobby-tab, .lobby-panel').forEach(el => el.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById(`panel-${t.dataset.tab}`).classList.add('active');
 });
+
+// Voice Pulse Simulation (for Mock Mode)
+function animateVoice() {
+    if (currentUser.role === 'speaker' && audio.isMocking) {
+        const btn = document.getElementById('mute-btn');
+        if (btn && btn.classList.contains('active')) {
+             // Muted, no pulse
+        } else {
+            const vol = Math.random() * 50; // Random pulse for mock
+            const myItem = document.getElementById(`user-${socket.id}`);
+            if (myItem) {
+                const ring = myItem.querySelector('.speaking-ring');
+                ring.style.opacity = vol > 10 ? '1' : '0';
+                ring.style.boxShadow = `0 0 ${vol/2}px var(--green)`;
+            }
+        }
+    }
+    requestAnimationFrame(animateVoice);
+}
+animateVoice();
