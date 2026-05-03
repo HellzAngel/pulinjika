@@ -25,10 +25,11 @@ io.on('connection', (socket) => {
             passkey: passkey,
             hostId: socket.id,
             hostName: data.name,
-            participants: [],
+            participants: [{ id: socket.id, name: data.name, role: 'speaker', isMuted: true }],
             requests: []
         };
         rooms.set(passkey, roomData);
+        socket.join(passkey); // Host joins the socket room too
         socket.emit('room-created', roomData);
     });
 

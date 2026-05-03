@@ -137,6 +137,7 @@ if (socket) {
         document.getElementById('passkey-code').textContent = room.passkey;
         document.getElementById('passkey-display').classList.remove('hidden');
         document.getElementById('create-form').classList.add('hidden');
+        renderParticipants(room.participants);
         showToast("Room created!", "🚀");
     });
 
