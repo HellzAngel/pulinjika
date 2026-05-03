@@ -263,6 +263,37 @@ body {
 .notif-btn.reject { background: var(--surface); color: var(--red); }
 .notif-btn:active { box-shadow: var(--in-sm); transform: translateY(1px); }
 
+/* --- Reactions --- */
+.reaction-btn {
+    font-size: 1.4rem;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.reaction-btn:active {
+    transform: scale(1.4);
+}
+
+.floating-reaction {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 2rem;
+    pointer-events: none;
+    animation: floatUp 1.5s ease-out forwards;
+    z-index: 10;
+}
+
+@keyframes floatUp {
+    0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
+    20% { transform: translate(-50%, -20px) scale(1.2); opacity: 1; }
+    100% { transform: translate(-50%, -100px) scale(1); opacity: 0; }
+}
+
+.avatar-lg, .avatar-md {
+    position: relative;
+}
+
 .speaker-grid {
     display: grid; grid-template-columns: repeat(3, 1fr);
     gap: 20px;

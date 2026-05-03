@@ -32,27 +32,19 @@ class AudioEngine {
         } catch (e) { console.error("Agora client creation failed", e); }
         this.localAudioTrack = null;
         this.isJoined = false;
-        this.uid = Math.floor(Math.random() * 1000000); // Integer UID for Agora
+        this.uid = Math.floor(Math.random() * 1000000); 
     }
 
     async join(channel) {
         if (this.isJoined || !this.client) return;
         try {
-            // Joining with null token (Requires "Testing Mode" in Agora Console)
             await this.client.join(AGORA_APP_ID, channel, null, this.uid);
             this.isJoined = true;
-            
             this.client.on("user-published", async (user, mediaType) => {
                 await this.client.subscribe(user, mediaType);
                 if (mediaType === "audio") user.audioTrack.play();
             });
-            console.log("Successfully joined Agora channel:", channel);
-        } catch (e) { 
-            console.error("Agora join failed:", e);
-            if (e.message.includes("CAN_NOT_GET_GATEWAY_SERVER")) {
-                showToast("Agora Config Error: Disable 'Primary Certificate' in Console", "⚠️");
-            }
-        }
+        } catch (e) { console.error("Agora join failed:", e); }
     }
 
     async startSpeaking() {
@@ -63,10 +55,7 @@ class AudioEngine {
             });
             await this.client.publish([this.localAudioTrack]);
             return true;
-        } catch (e) {
-            showToast("Mic access denied!", "❌");
-            return false;
-        }
+        } catch (e) { return false; }
     }
 
     async stopSpeaking() {
@@ -111,7 +100,7 @@ let hostId = null;
 function showConfirm() { confirmModal.classList.remove('hidden'); }
 function hideConfirm() { confirmModal.classList.add('hidden'); }
 function showUserMenu(userId) {
-    if (socket.id !== hostId) return;
+    if (PERSISTENT_UID !== hostId) return;
     const participants = Array.from(document.querySelectorAll('.speaker-item, .listener-item'))
                          .map(el => ({ id: el.id.replace('user-', ''), name: el.dataset.name, role: el.dataset.role }));
     const user = participants.find(p => p.id === userId);
@@ -129,16 +118,27 @@ function showUserMenu(userId) {
 }
 
 // ================================================
-// SPLASH SCREEN
+// INITIALIZATION & AUTO-REJOIN
 // ================================================
 document.addEventListener('DOMContentLoaded', () => {
     const splash = document.getElementById('splash-screen');
     const lobby = document.getElementById('lobby-screen');
+    
+    // Auto-rejoin check
+    const savedPasskey = localStorage.getItem('pulinjika_last_room');
+    const savedName = localStorage.getItem('pulinjika_last_name');
+
     setTimeout(() => {
         if (splash) splash.classList.add('fade-out');
         setTimeout(() => {
             if (splash) splash.style.display = 'none';
-            if (lobby) lobby.classList.remove('hidden');
+            if (savedPasskey && savedName) {
+                // Attempting auto-rejoin
+                currentUser.name = savedName;
+                if (socket) socket.emit('join-room', { name: savedName, passkey: savedPasskey });
+            } else {
+                if (lobby) lobby.classList.remove('hidden');
+            }
         }, 500);
     }, 2500);
 });
@@ -151,6 +151,11 @@ if (socket) {
         activePasskey = room.passkey;
         hostId = room.hostId;
         currentUser.role = 'speaker';
+        
+        // Persist room for auto-rejoin
+        localStorage.setItem('pulinjika_last_room', room.passkey);
+        localStorage.setItem('pulinjika_last_name', currentUser.name);
+
         document.getElementById('passkey-code').textContent = room.passkey;
         document.getElementById('room-passkey-badge').textContent = room.passkey;
         document.getElementById('room-title-display').textContent = room.title;
@@ -163,6 +168,11 @@ if (socket) {
     socket.on('join-success', (data) => {
         activePasskey = data.passkey;
         hostId = data.hostId;
+        
+        // Persist room for auto-rejoin
+        localStorage.setItem('pulinjika_last_room', data.passkey);
+        localStorage.setItem('pulinjika_last_name', currentUser.name);
+
         document.getElementById('room-title-display').textContent = data.roomTitle;
         document.getElementById('room-passkey-badge').textContent = data.passkey;
         enterRoom();
@@ -171,7 +181,6 @@ if (socket) {
     });
 
     socket.on('user-joined', (data) => {
-        showToast(`${data.user.name} joined!`, "👋");
         renderParticipants(data.allParticipants);
     });
 
@@ -180,12 +189,11 @@ if (socket) {
     });
 
     socket.on('role-updated', (data) => {
-        if (data.userId === socket.id) {
+        if (data.userId === PERSISTENT_UID) {
             const oldRole = currentUser.role;
             currentUser.role = data.role;
-            if (oldRole === 'listener' && data.role === 'speaker') {
-                showToast("You are now a Speaker! 🎤", "🎊");
-            } else if (oldRole === 'speaker' && data.role === 'listener') {
+            if (oldRole === 'listener' && data.role === 'speaker') showToast("You are now a Speaker! 🎤", "🎊");
+            else if (oldRole === 'speaker' && data.role === 'listener') {
                 showToast("Moved to Audience.", "🎧");
                 audio.stopSpeaking();
             }
@@ -194,7 +202,7 @@ if (socket) {
     });
 
     socket.on('hand-raised', (user) => {
-        if (socket.id === hostId) {
+        if (PERSISTENT_UID === hostId) {
             const notifEl = document.getElementById('host-notifications');
             notifEl.classList.remove('hidden');
             document.getElementById('requester-name').textContent = user.name;
@@ -207,12 +215,21 @@ if (socket) {
         if (el) el.classList.toggle('speaking', !data.isMuted);
     });
 
+    socket.on('new-reaction', (data) => {
+        spawnReaction(data.userId, data.emoji);
+    });
+
     socket.on('room-closed', () => {
+        localStorage.removeItem('pulinjika_last_room');
         alert("The host has closed the room.");
         location.reload();
     });
 
-    socket.on('error', (msg) => showToast(msg, "❌"));
+    socket.on('error', (msg) => {
+        localStorage.removeItem('pulinjika_last_room');
+        showToast(msg, "❌");
+        document.getElementById('lobby-screen').classList.remove('hidden');
+    });
 }
 
 // ================================================
@@ -231,20 +248,25 @@ function renderParticipants(list) {
         div.dataset.role = p.role;
         
         if (p.role === 'speaker') {
-            div.className = `speaker-item ${!p.isMuted ? 'speaking' : ''} ${socket && socket.id === hostId ? 'clickable' : ''}`;
+            div.className = `speaker-item ${!p.isMuted ? 'speaking' : ''} ${PERSISTENT_UID === hostId ? 'clickable' : ''}`;
             div.innerHTML = `
                 <div class="avatar-lg">
                     <div class="avatar-inner" style="background-image: url('https://i.pravatar.cc/150?u=${p.id}')"></div>
                     <div class="speaking-ring"></div>
+                    <div class="reaction-container" id="react-cont-${p.id}"></div>
                 </div>
-                <span class="speaker-name">${p.name} ${p.id === hostId ? '👑' : ''} ${socket && p.id === socket.id ? '✳️' : ''}</span>
+                <span class="speaker-name">${p.name} ${p.id === hostId ? '👑' : ''} ${p.id === PERSISTENT_UID ? '✳️' : ''}</span>
             `;
-            if (socket && socket.id === hostId) div.onclick = () => showUserMenu(p.id);
+            if (PERSISTENT_UID === hostId) div.onclick = () => showUserMenu(p.id);
             speakerGrid.appendChild(div);
         } else {
-            div.className = `listener-item ${socket && socket.id === hostId ? 'clickable' : ''}`;
-            div.innerHTML = `<div class="avatar-md" style="background-image: url('https://i.pravatar.cc/150?u=${p.id}')"></div>`;
-            if (socket && socket.id === hostId) div.onclick = () => showUserMenu(p.id);
+            div.className = `listener-item ${PERSISTENT_UID === hostId ? 'clickable' : ''}`;
+            div.innerHTML = `
+                <div class="avatar-md" style="background-image: url('https://i.pravatar.cc/150?u=${p.id}')">
+                    <div class="reaction-container" id="react-cont-${p.id}"></div>
+                </div>
+            `;
+            if (PERSISTENT_UID === hostId) div.onclick = () => showUserMenu(p.id);
             listenerGrid.appendChild(div);
         }
     });
@@ -253,6 +275,16 @@ function renderParticipants(list) {
     const raiseBtn = document.getElementById('raise-hand-btn');
     if (muteBtn) muteBtn.classList.toggle('hidden', currentUser.role !== 'speaker');
     if (raiseBtn) raiseBtn.classList.toggle('hidden', currentUser.role === 'speaker');
+}
+
+function spawnReaction(userId, emoji) {
+    const container = document.getElementById(`react-cont-${userId}`);
+    if (!container) return;
+    const el = document.createElement('div');
+    el.className = 'floating-reaction';
+    el.textContent = emoji;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
 }
 
 function enterRoom() {
@@ -304,6 +336,13 @@ document.getElementById('raise-hand-btn').onclick = () => {
     showToast("Hand raised!", "✋");
 };
 
+document.querySelectorAll('.reaction-btn').forEach(btn => {
+    btn.onclick = () => {
+        const emoji = btn.dataset.reaction;
+        if (socket) socket.emit('send-reaction', { passkey: activePasskey, emoji });
+    };
+});
+
 // Moderation
 document.getElementById('accept-request').onclick = () => {
     const userId = document.getElementById('host-notifications').dataset.userId;
@@ -323,25 +362,17 @@ document.getElementById('action-demote').onclick = () => {
 
 document.getElementById('leave-quietly').onclick = showConfirm;
 document.getElementById('cancel-leave').onclick = hideConfirm;
-document.getElementById('confirm-leave').onclick = () => location.reload();
+document.getElementById('confirm-leave').onclick = () => {
+    localStorage.removeItem('pulinjika_last_room');
+    if (socket) socket.emit('leave-room', { passkey: activePasskey });
+    location.reload();
+};
 
-// Utilities
 document.getElementById('copy-room-passkey').onclick = () => { navigator.clipboard.writeText(activePasskey); showToast("Passkey copied!"); };
-document.getElementById('copy-passkey').onclick = () => { navigator.clipboard.writeText(activePasskey); showToast("Passkey copied!"); };
 document.getElementById('close-user-menu').onclick = () => userMenu.classList.add('hidden');
 
-// Tab Switcher Initialization
 document.querySelectorAll('.lobby-tab').forEach(t => t.onclick = (e) => {
     document.querySelectorAll('.lobby-tab, .lobby-panel').forEach(el => el.classList.remove('active'));
     t.classList.add('active');
     document.getElementById(`panel-${t.dataset.tab}`).classList.add('active');
 });
-
-// Voice Pulse Logic
-function animateVoice() {
-    if (currentUser.role === 'speaker' && audio.localAudioTrack) {
-        // In real production, use the AnalyserNode for precise levels
-    }
-    requestAnimationFrame(animateVoice);
-}
-animateVoice();
