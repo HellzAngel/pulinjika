@@ -1,8 +1,10 @@
 // ================================================
 // PRODUCTION CONFIG
 // ================================================
-const socket = io();
-const AGORA_APP_ID = "YOUR_AGORA_APP_ID"; // Replace with your real Agora App ID for production
+const BACKEND_URL = "https://pulinjika.onrender.com";
+
+const socket = io(BACKEND_URL);
+const AGORA_APP_ID = "YOUR_AGORA_APP_ID"; 
 
 // ================================================
 // AUDIO ENGINE (AGORA SDK)
