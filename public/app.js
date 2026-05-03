@@ -12,24 +12,21 @@ const PERSISTENT_UID = localStorage.getItem('pulinjika_uid');
 try {
     socket = io(BACKEND_URL, {
         query: { userId: PERSISTENT_UID },
-        reconnection: true,
-        reconnectionAttempts: 5
+        reconnection: true
     });
 } catch (e) {
-    console.error("Socket.io failed to initialize", e);
+    console.error("Socket.io failed", e);
 }
 
 const AGORA_APP_ID = "0c90d8dfbde2474e9731c1d3738d6bda"; 
 
 // ================================================
-// AUDIO ENGINE (AGORA SDK)
+// AUDIO ENGINE
 // ================================================
 class AudioEngine {
     constructor() {
         this.client = null;
-        try {
-            this.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        } catch (e) { console.error("Agora client creation failed", e); }
+        try { this.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" }); } catch (e) {}
         this.localAudioTrack = null;
         this.isJoined = false;
         this.uid = Math.floor(Math.random() * 1000000); 
@@ -44,7 +41,7 @@ class AudioEngine {
                 await this.client.subscribe(user, mediaType);
                 if (mediaType === "audio") user.audioTrack.play();
             });
-        } catch (e) { console.error("Agora join failed:", e); }
+        } catch (e) { console.error("Agora join failed", e); }
     }
 
     async startSpeaking() {
@@ -105,12 +102,10 @@ function showUserMenu(userId) {
                          .map(el => ({ id: el.id.replace('user-', ''), name: el.dataset.name, role: el.dataset.role }));
     const user = participants.find(p => p.id === userId);
     if (!user) return;
-    
     selectedUserId = userId;
     document.getElementById('selected-user-name').textContent = user.name;
     document.getElementById('selected-user-role').textContent = user.role;
     document.getElementById('selected-user-avatar').querySelector('.avatar-inner').style.backgroundImage = `url('https://i.pravatar.cc/150?u=${userId}')`;
-    
     document.getElementById('action-promote').classList.toggle('hidden', user.role === 'speaker');
     document.getElementById('action-demote').classList.toggle('hidden', user.role === 'listener' || userId === hostId);
     document.getElementById('action-kick').classList.toggle('hidden', userId === hostId);
@@ -132,8 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (splash) splash.style.display = 'none';
             if (savedPasskey && savedName) {
                 currentUser.name = savedName;
-                if (socket.connected) socket.emit('join-room', { name: savedName, passkey: savedPasskey });
-                else socket.once('connect', () => socket.emit('join-room', { name: savedName, passkey: savedPasskey }));
+                const tryJoin = () => socket.emit('join-room', { name: savedName, passkey: savedPasskey });
+                if (socket.connected) tryJoin();
+                else socket.once('connect', tryJoin);
             } else {
                 if (lobby) lobby.classList.remove('hidden');
             }
@@ -149,9 +145,10 @@ if (socket) {
     socket.on('room-created', (room) => {
         activePasskey = room.passkey;
         hostId = room.hostId;
-        currentUser.role = 'speaker'; // Host is always speaker
+        currentUser.role = 'speaker';
         localStorage.setItem('pulinjika_last_room', room.passkey);
         localStorage.setItem('pulinjika_last_name', currentUser.name);
+        localStorage.setItem('pulinjika_last_title', room.title); // Store title for healing
         document.getElementById('passkey-code').textContent = room.passkey;
         document.getElementById('room-passkey-badge').textContent = room.passkey;
         document.getElementById('room-title-display').textContent = room.title;
@@ -164,11 +161,8 @@ if (socket) {
     socket.on('join-success', (data) => {
         activePasskey = data.passkey;
         hostId = data.hostId;
-        
-        // Restore role from participant list
         const me = data.participants.find(p => p.id === PERSISTENT_UID);
         if (me) currentUser.role = me.role;
-
         localStorage.setItem('pulinjika_last_room', data.passkey);
         localStorage.setItem('pulinjika_last_name', currentUser.name);
         document.getElementById('room-title-display').textContent = data.roomTitle;
@@ -217,11 +211,26 @@ if (socket) {
     });
 
     socket.on('error', (msg) => {
-        showToast(msg, "❌");
-        if (msg.includes("Invalid")) {
-            localStorage.removeItem('pulinjika_last_room');
-            document.getElementById('lobby-screen').classList.remove('hidden');
+        if (msg === 'ROOM_NOT_FOUND') {
+            // SELF-HEALING: If I was the host, re-create the room silently
+            const savedTitle = localStorage.getItem('pulinjika_last_title');
+            const savedName = localStorage.getItem('pulinjika_last_name');
+            const savedPasskey = localStorage.getItem('pulinjika_last_room');
+            
+            if (savedTitle && savedName && savedPasskey) {
+                console.log("Self-healing triggered for room:", savedPasskey);
+                socket.emit('create-room', { 
+                    title: savedTitle, 
+                    name: savedName, 
+                    recoverPasskey: savedPasskey 
+                });
+                return;
+            }
         }
+        
+        showToast(msg, "❌");
+        localStorage.removeItem('pulinjika_last_room');
+        document.getElementById('lobby-screen').classList.remove('hidden');
     });
 }
 
@@ -239,7 +248,6 @@ function renderParticipants(list) {
         div.id = `user-${p.id}`;
         div.dataset.name = p.name;
         div.dataset.role = p.role;
-        
         if (p.role === 'speaker') {
             div.className = `speaker-item ${!p.isMuted ? 'speaking' : ''} ${PERSISTENT_UID === hostId ? 'clickable' : ''}`;
             div.innerHTML = `
@@ -266,11 +274,8 @@ function renderParticipants(list) {
 
     const muteBtn = document.getElementById('mute-btn');
     const raiseBtn = document.getElementById('raise-hand-btn');
-    
-    // Logic fix: Check our own role in the global list if needed
     const myEntry = list.find(p => p.id === PERSISTENT_UID);
     const myRole = myEntry ? myEntry.role : currentUser.role;
-
     if (muteBtn) muteBtn.classList.toggle('hidden', myRole !== 'speaker');
     if (raiseBtn) raiseBtn.classList.toggle('hidden', myRole === 'speaker');
 }
@@ -345,10 +350,6 @@ document.querySelectorAll('.reaction-btn').forEach(btn => {
 document.getElementById('accept-request').onclick = () => {
     const userId = document.getElementById('host-notifications').dataset.userId;
     if (socket) socket.emit('accept-speaker', { passkey: activePasskey, userId });
-    document.getElementById('host-notifications').classList.add('hidden');
-};
-
-document.getElementById('reject-request').onclick = () => {
     document.getElementById('host-notifications').classList.add('hidden');
 };
 
