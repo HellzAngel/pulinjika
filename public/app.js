@@ -153,6 +153,7 @@ if (socket) {
         currentUser.role = 'speaker';
         document.getElementById('passkey-code').textContent = room.passkey;
         document.getElementById('room-passkey-badge').textContent = room.passkey;
+        document.getElementById('room-title-display').textContent = room.title;
         document.getElementById('passkey-display').classList.remove('hidden');
         document.getElementById('create-form').classList.add('hidden');
         renderParticipants(room.participants);
