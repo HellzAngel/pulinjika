@@ -10,53 +10,44 @@ try {
     console.error("Socket.io failed to initialize", e);
 }
 
-// IMPORTANT: Real App ID from agora.io
+// Your real Agora App ID
 const AGORA_APP_ID = "61739e6344734a9ba5ccb270f18cc7f2"; 
 
 // ================================================
-// AUDIO ENGINE (AGORA SDK + MOCK FALLBACK)
+// AUDIO ENGINE (AGORA SDK)
 // ================================================
 class AudioEngine {
     constructor() {
         this.client = null;
         try {
-            if (typeof AgoraRTC !== 'undefined') {
-                this.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-            }
-        } catch (e) { console.warn("Agora client creation skipped (No SDK or ID)"); }
+            this.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        } catch (e) { console.error("Agora client creation failed", e); }
         this.localAudioTrack = null;
         this.isJoined = false;
-        this.isMocking = false;
+        this.uid = Math.floor(Math.random() * 1000000); // Integer UID for Agora
     }
 
-    async join(channel, uid) {
-        if (this.isJoined) return;
-        
-        // Check if App ID is still the placeholder
-        if (AGORA_APP_ID === "YOUR_AGORA_APP_ID" || !this.client) {
-            console.warn("Using MOCK AUDIO MODE. Please set your Agora App ID for real production audio.");
-            this.isMocking = true;
-            this.isJoined = true;
-            showToast("Mock Audio Mode Active", "🚧");
-            return;
-        }
-
+    async join(channel) {
+        if (this.isJoined || !this.client) return;
         try {
-            await this.client.join(AGORA_APP_ID, channel, null, uid);
+            // Joining with null token (Requires "Testing Mode" in Agora Console)
+            await this.client.join(AGORA_APP_ID, channel, null, this.uid);
             this.isJoined = true;
+            
             this.client.on("user-published", async (user, mediaType) => {
                 await this.client.subscribe(user, mediaType);
                 if (mediaType === "audio") user.audioTrack.play();
             });
+            console.log("Successfully joined Agora channel:", channel);
         } catch (e) { 
-            console.error("Agora join failed. Falling back to Mock mode.", e); 
-            this.isMocking = true;
-            this.isJoined = true;
+            console.error("Agora join failed:", e);
+            if (e.message.includes("CAN_NOT_GET_GATEWAY_SERVER")) {
+                showToast("Agora Config Error: Disable 'Primary Certificate' in Console", "⚠️");
+            }
         }
     }
 
     async startSpeaking() {
-        if (this.isMocking) return true;
         try {
             this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
                 encoderConfig: "high_quality_stereo",
@@ -99,7 +90,7 @@ function showToast(message, icon = '📋') {
     setTimeout(() => {
         toast.classList.add('fade-out');
         setTimeout(() => toast.classList.add('hidden'), 400);
-    }, 3000);
+    }, 4000);
 }
 
 const confirmModal = document.getElementById('confirm-modal');
@@ -165,7 +156,7 @@ if (socket) {
         document.getElementById('room-title-display').textContent = data.roomTitle;
         enterRoom();
         renderParticipants(data.participants);
-        audio.join(activePasskey, socket.id);
+        audio.join(activePasskey);
     });
 
     socket.on('user-joined', (data) => {
@@ -186,11 +177,6 @@ if (socket) {
             } else if (oldRole === 'speaker' && data.role === 'listener') {
                 showToast("Moved to Audience.", "🎧");
                 audio.stopSpeaking();
-                const muteBtn = document.getElementById('mute-btn');
-                if (muteBtn) {
-                    muteBtn.textContent = '🎤';
-                    muteBtn.classList.remove('active');
-                }
             }
         }
         renderParticipants(data.allParticipants);
@@ -232,10 +218,9 @@ function renderParticipants(list) {
         div.id = `user-${p.id}`;
         div.dataset.name = p.name;
         div.dataset.role = p.role;
-        if (socket && socket.id === hostId) div.classList.add('clickable');
         
         if (p.role === 'speaker') {
-            div.className = `speaker-item ${!p.isMuted ? 'speaking' : ''}`;
+            div.className = `speaker-item ${!p.isMuted ? 'speaking' : ''} ${socket && socket.id === hostId ? 'clickable' : ''}`;
             div.innerHTML = `
                 <div class="avatar-lg">
                     <div class="avatar-inner" style="background-image: url('https://i.pravatar.cc/150?u=${p.id}')"></div>
@@ -246,7 +231,7 @@ function renderParticipants(list) {
             if (socket && socket.id === hostId) div.onclick = () => showUserMenu(p.id);
             speakerGrid.appendChild(div);
         } else {
-            div.className = 'listener-item';
+            div.className = `listener-item ${socket && socket.id === hostId ? 'clickable' : ''}`;
             div.innerHTML = `<div class="avatar-md" style="background-image: url('https://i.pravatar.cc/150?u=${p.id}')"></div>`;
             if (socket && socket.id === hostId) div.onclick = () => showUserMenu(p.id);
             listenerGrid.appendChild(div);
@@ -288,12 +273,12 @@ document.getElementById('join-form').onsubmit = (e) => {
 
 document.getElementById('enter-created-room').onclick = () => {
     enterRoom();
-    if (socket) audio.join(activePasskey, socket.id);
+    if (socket) audio.join(activePasskey);
 };
 
 document.getElementById('mute-btn').onclick = async () => {
     const btn = document.getElementById('mute-btn');
-    if (!audio.localAudioTrack && !audio.isMocking) {
+    if (!audio.localAudioTrack) {
         const success = await audio.startSpeaking();
         if (!success) return;
     }
@@ -341,21 +326,10 @@ document.querySelectorAll('.lobby-tab').forEach(t => t.onclick = (e) => {
     document.getElementById(`panel-${t.dataset.tab}`).classList.add('active');
 });
 
-// Voice Pulse Simulation (for Mock Mode)
+// Voice Pulse Logic
 function animateVoice() {
-    if (currentUser.role === 'speaker' && audio.isMocking) {
-        const btn = document.getElementById('mute-btn');
-        if (btn && btn.classList.contains('active')) {
-             // Muted, no pulse
-        } else {
-            const vol = Math.random() * 50; // Random pulse for mock
-            const myItem = document.getElementById(`user-${socket.id}`);
-            if (myItem) {
-                const ring = myItem.querySelector('.speaking-ring');
-                ring.style.opacity = vol > 10 ? '1' : '0';
-                ring.style.boxShadow = `0 0 ${vol/2}px var(--green)`;
-            }
-        }
+    if (currentUser.role === 'speaker' && audio.localAudioTrack) {
+        // In real production, use the AnalyserNode for precise levels
     }
     requestAnimationFrame(animateVoice);
 }
