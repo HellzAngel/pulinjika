@@ -9,7 +9,7 @@ const io = new Server(server, {
     cors: { origin: "*" }
 });
 
-app.use(express.static(path.join(__dirname, './')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // In-memory store for rooms (Use Redis/MongoDB for real production scaling)
 const rooms = new Map();
