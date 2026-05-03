@@ -4,8 +4,16 @@
 const BACKEND_URL = "https://pulinjika.onrender.com";
 let socket;
 
+// Persistent User Identity (Survives Refresh)
+if (!localStorage.getItem('pulinjika_uid')) {
+    localStorage.setItem('pulinjika_uid', 'user_' + Math.random().toString(36).substr(2, 9));
+}
+const PERSISTENT_UID = localStorage.getItem('pulinjika_uid');
+
 try {
-    socket = io(BACKEND_URL);
+    socket = io(BACKEND_URL, {
+        query: { userId: PERSISTENT_UID }
+    });
 } catch (e) {
     console.error("Socket.io failed to initialize", e);
 }
