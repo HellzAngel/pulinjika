@@ -144,6 +144,7 @@ if (socket) {
         hostId = room.hostId;
         currentUser.role = 'speaker';
         document.getElementById('passkey-code').textContent = room.passkey;
+        document.getElementById('room-passkey-badge').textContent = room.passkey;
         document.getElementById('passkey-display').classList.remove('hidden');
         document.getElementById('create-form').classList.add('hidden');
         renderParticipants(room.participants);
@@ -154,6 +155,7 @@ if (socket) {
         activePasskey = data.passkey;
         hostId = data.hostId;
         document.getElementById('room-title-display').textContent = data.roomTitle;
+        document.getElementById('room-passkey-badge').textContent = data.passkey;
         enterRoom();
         renderParticipants(data.participants);
         audio.join(activePasskey);
