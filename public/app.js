@@ -348,6 +348,10 @@ document.getElementById('accept-request').onclick = () => {
     document.getElementById('host-notifications').classList.add('hidden');
 };
 
+document.getElementById('reject-request').onclick = () => {
+    document.getElementById('host-notifications').classList.add('hidden');
+};
+
 document.getElementById('action-promote').onclick = () => {
     if (socket) socket.emit('accept-speaker', { passkey: activePasskey, userId: selectedUserId });
     userMenu.classList.add('hidden');
