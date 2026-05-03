@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pulinjika | Real-time Audio Social</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- ===== SPLASH ===== -->
+    <div id="splash-screen" class="splash-screen">
+        <div class="splash-content">
+            <div class="splash-logo-wrap">
+                <img src="pulinjika_logo.png" alt="Pulinjika" class="splash-logo">
+            </div>
+            <h1 class="splash-title">Pulinjika</h1>
+            <p class="splash-tagline">Real conversations. Real people.</p>
+            <div class="splash-loader">
+                <div class="splash-loader-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== LOBBY (Create / Join) ===== -->
+    <div id="lobby-screen" class="lobby-screen hidden">
+        <div class="lobby-card">
+            <div class="lobby-brand">
+                <div class="lobby-logo-wrap">
+                    <img src="pulinjika_logo.png" alt="Pulinjika" class="lobby-logo-img">
+                </div>
+                <h1 class="lobby-title">Pulinjika</h1>
+                <p class="lobby-subtitle">Drop into real conversations</p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="lobby-tabs">
+                <button class="lobby-tab active" data-tab="create">Create Room</button>
+                <button class="lobby-tab" data-tab="join">Join Room</button>
+            </div>
+
+            <!-- CREATE -->
+            <div id="panel-create" class="lobby-panel active">
+                <form id="create-form" autocomplete="off">
+                    <div class="input-group">
+                        <label for="room-name-input">🎙️ Room Name</label>
+                        <input type="text" id="room-name-input" placeholder="e.g. Tech Talk Tonight" required maxlength="60">
+                    </div>
+                    <div class="input-group">
+                        <label for="host-name-input">👤 Your Name</label>
+                        <input type="text" id="host-name-input" placeholder="e.g. Ananthu" required maxlength="30">
+                    </div>
+                    <button type="submit" class="action-btn">
+                        <span>🚀 Create & Get Passkey</span>
+                    </button>
+                </form>
+                <div id="passkey-display" class="passkey-display hidden">
+                    <p class="passkey-label">Your Room Passkey</p>
+                    <div class="passkey-code" id="passkey-code">PLNK-0000</div>
+                    <button type="button" class="copy-btn" id="copy-passkey">📋 Copy Passkey</button>
+                    <p class="passkey-hint">Share this passkey with others so they can join!</p>
+                    <button type="button" class="action-btn enter-btn" id="enter-created-room">
+                        <span>🎤 Enter Room</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- JOIN -->
+            <div id="panel-join" class="lobby-panel">
+                <form id="join-form" autocomplete="off">
+                    <div class="input-group">
+                        <label for="join-name-input">👤 Your Name</label>
+                        <input type="text" id="join-name-input" placeholder="e.g. Meera" required maxlength="30">
+                    </div>
+                    <div class="input-group">
+                        <label for="passkey-input">🔑 Room Passkey</label>
+                        <input type="text" id="passkey-input" placeholder="PLNK-XXXX" required maxlength="9"
+                               class="passkey-input-field">
+                    </div>
+                    <div id="join-error" class="form-error hidden">⚠️ Invalid passkey. Please check and try again.</div>
+                    <button type="submit" class="action-btn">
+                        <span>🎧 Join Room</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== ROOM VIEW ===== -->
+    <div id="room-screen" class="room-screen hidden">
+        <div class="room-header">
+            <button id="leave-quietly" class="leave-btn">✌️ Leave</button>
+            <div class="room-passkey-badge" id="room-passkey-badge">PLNK-0000</div>
+            <button class="copy-room-btn" id="copy-room-passkey">📋</button>
+        </div>
+        <div class="room-body">
+            <h2 id="room-title-display"></h2>
+            
+            <!-- Host Notifications (Only visible to host) -->
+            <div id="host-notifications" class="host-notifications hidden">
+                <p>✋ <span id="requester-name">Someone</span> wants to speak</p>
+                <div class="notif-actions">
+                    <button id="accept-request" class="notif-btn accept">Allow</button>
+                    <button id="reject-request" class="notif-btn reject">Decline</button>
+                </div>
+            </div>
+
+            <div class="room-section">
+                <h3>Stage</h3>
+                <div class="speaker-grid" id="speaker-grid"></div>
+            </div>
+
+            <div class="room-section listener-section">
+                <h3>Audience</h3>
+                <div class="listener-grid" id="listener-grid"></div>
+            </div>
+        </div>
+        <div class="room-controls">
+            <button class="control-btn" id="raise-hand-btn">✋</button>
+            <button class="control-btn mute-toggle" id="mute-btn">🎤</button>
+            <button class="control-btn" id="share-btn">📋</button>
+        </div>
+    </div>
+
+    <!-- User Management Menu (Host only) -->
+    <div id="user-menu" class="modal-overlay hidden">
+        <div class="modal-card user-action-card">
+            <div class="user-menu-header">
+                <div id="selected-user-avatar" class="avatar-lg">
+                    <div class="avatar-inner"></div>
+                </div>
+                <h3 id="selected-user-name">User Name</h3>
+                <p id="selected-user-role">Listener</p>
+            </div>
+            <div class="modal-actions-vertical">
+                <button id="action-promote" class="modal-btn secondary">🎤 Move to Stage</button>
+                <button id="action-demote" class="modal-btn secondary">🎧 Move to Audience</button>
+                <button id="action-kick" class="modal-btn primary">🚫 Kick from Room</button>
+                <button id="close-user-menu" class="modal-btn ghost">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirmation Modal -->
+    <div id="confirm-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h3>Leave Room?</h3>
+            <p>Are you sure you want to leave the conversation?</p>
+            <div class="modal-actions">
+                <button id="cancel-leave" class="modal-btn secondary">Stay</button>
+                <button id="confirm-leave" class="modal-btn primary">Leave</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Toast Notification -->
+    <div id="toast" class="toast hidden">
+        <span class="toast-icon">📋</span>
+        <span id="toast-message" class="toast-message">Passkey copied!</span>
+    </div>
+
+    <!-- Production Libraries -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.18.2.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
