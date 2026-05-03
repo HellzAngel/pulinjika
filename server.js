@@ -50,6 +50,17 @@ io.on('connection', (socket) => {
         socket.emit('room-created', roomData);
     });
 
+    // Raise Hand
+    socket.on('raise-hand', (data) => {
+        const room = rooms.get(data.passkey);
+        if (room) {
+            const request = { id: socket.id, name: data.name };
+            room.requests.push(request);
+            saveRooms(rooms);
+            io.to(data.passkey).emit('hand-raised', request);
+        }
+    });
+
     // Join Room
     socket.on('join-room', (data) => {
         const room = rooms.get(data.passkey);
