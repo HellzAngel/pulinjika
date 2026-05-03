@@ -10,8 +10,8 @@ try {
     console.error("Socket.io failed to initialize", e);
 }
 
-// Your real Agora App ID
-const AGORA_APP_ID = "61739e6344734a9ba5ccb270f18cc7f2"; 
+// IMPORTANT: Real App ID from agora.io
+const AGORA_APP_ID = "0c90d8dfbde2474e9731c1d3738d6bda"; 
 
 // ================================================
 // AUDIO ENGINE (AGORA SDK)
