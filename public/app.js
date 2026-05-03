@@ -94,7 +94,7 @@ const confirmModal = document.getElementById('confirm-modal');
 const userMenu = document.getElementById('user-menu');
 let selectedUserId = null;
 let activePasskey = null;
-let currentUser = { name: '', id: null, role: 'listener' };
+let currentUser = { name: '', id: PERSISTENT_UID, role: 'listener' };
 let hostId = null;
 
 function showConfirm() { confirmModal.classList.remove('hidden'); }
@@ -123,7 +123,6 @@ function showUserMenu(userId) {
 document.addEventListener('DOMContentLoaded', () => {
     const splash = document.getElementById('splash-screen');
     const lobby = document.getElementById('lobby-screen');
-    
     const savedPasskey = localStorage.getItem('pulinjika_last_room');
     const savedName = localStorage.getItem('pulinjika_last_name');
 
@@ -133,21 +132,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (splash) splash.style.display = 'none';
             if (savedPasskey && savedName) {
                 currentUser.name = savedName;
-                // Wait for socket to be ready before rejoining
-                if (socket.connected) {
-                    socket.emit('join-room', { name: savedName, passkey: savedPasskey });
-                } else {
-                    socket.once('connect', () => {
-                        socket.emit('join-room', { name: savedName, passkey: savedPasskey });
-                    });
-                }
+                if (socket.connected) socket.emit('join-room', { name: savedName, passkey: savedPasskey });
+                else socket.once('connect', () => socket.emit('join-room', { name: savedName, passkey: savedPasskey }));
             } else {
                 if (lobby) lobby.classList.remove('hidden');
             }
         }, 500);
     };
-
-    // Splash screen timer
     setTimeout(finishLoading, 2500);
 });
 
@@ -158,7 +149,7 @@ if (socket) {
     socket.on('room-created', (room) => {
         activePasskey = room.passkey;
         hostId = room.hostId;
-        currentUser.role = 'speaker';
+        currentUser.role = 'speaker'; // Host is always speaker
         localStorage.setItem('pulinjika_last_room', room.passkey);
         localStorage.setItem('pulinjika_last_name', currentUser.name);
         document.getElementById('passkey-code').textContent = room.passkey;
@@ -173,6 +164,11 @@ if (socket) {
     socket.on('join-success', (data) => {
         activePasskey = data.passkey;
         hostId = data.hostId;
+        
+        // Restore role from participant list
+        const me = data.participants.find(p => p.id === PERSISTENT_UID);
+        if (me) currentUser.role = me.role;
+
         localStorage.setItem('pulinjika_last_room', data.passkey);
         localStorage.setItem('pulinjika_last_name', currentUser.name);
         document.getElementById('room-title-display').textContent = data.roomTitle;
@@ -182,13 +178,8 @@ if (socket) {
         audio.join(activePasskey);
     });
 
-    socket.on('user-joined', (data) => {
-        renderParticipants(data.allParticipants);
-    });
-
-    socket.on('user-left', (data) => {
-        renderParticipants(data.allParticipants);
-    });
+    socket.on('user-joined', (data) => renderParticipants(data.allParticipants));
+    socket.on('user-left', (data) => renderParticipants(data.allParticipants));
 
     socket.on('role-updated', (data) => {
         if (data.userId === PERSISTENT_UID) {
@@ -217,9 +208,7 @@ if (socket) {
         if (el) el.classList.toggle('speaking', !data.isMuted);
     });
 
-    socket.on('new-reaction', (data) => {
-        spawnReaction(data.userId, data.emoji);
-    });
+    socket.on('new-reaction', (data) => spawnReaction(data.userId, data.emoji));
 
     socket.on('room-closed', () => {
         localStorage.removeItem('pulinjika_last_room');
@@ -277,8 +266,13 @@ function renderParticipants(list) {
 
     const muteBtn = document.getElementById('mute-btn');
     const raiseBtn = document.getElementById('raise-hand-btn');
-    if (muteBtn) muteBtn.classList.toggle('hidden', currentUser.role !== 'speaker');
-    if (raiseBtn) raiseBtn.classList.toggle('hidden', currentUser.role === 'speaker');
+    
+    // Logic fix: Check our own role in the global list if needed
+    const myEntry = list.find(p => p.id === PERSISTENT_UID);
+    const myRole = myEntry ? myEntry.role : currentUser.role;
+
+    if (muteBtn) muteBtn.classList.toggle('hidden', myRole !== 'speaker');
+    if (raiseBtn) raiseBtn.classList.toggle('hidden', myRole === 'speaker');
 }
 
 function spawnReaction(userId, emoji) {
