@@ -54,11 +54,12 @@ io.on('connection', (socket) => {
     socket.on('leave-room', (data) => {
         const room = rooms.get(data.passkey);
         if (room) {
-            room.participants = room.participants.filter(p => p.id !== userId);
-            if (userId === room.hostId && room.participants.length === 0) {
+            if (userId === room.hostId) {
+                // If Host leaves, close for EVERYONE
                 io.to(data.passkey).emit('room-closed');
                 rooms.delete(data.passkey);
             } else {
+                room.participants = room.participants.filter(p => p.id !== userId);
                 io.to(data.passkey).emit('user-left', { userId, allParticipants: room.participants });
             }
         }

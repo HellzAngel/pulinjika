@@ -89,6 +89,7 @@ function showToast(message, icon = '📋') {
 
 const confirmModal = document.getElementById('confirm-modal');
 const roomEndedModal = document.getElementById('room-ended-modal');
+const kickedModal = document.getElementById('kicked-modal');
 const userMenu = document.getElementById('user-menu');
 let selectedUserId = null;
 let activePasskey = null;
@@ -97,6 +98,7 @@ let hostId = null;
 
 function showConfirm() { confirmModal.classList.remove('hidden'); }
 function hideConfirm() { confirmModal.classList.add('hidden'); }
+
 function showUserMenu(userId) {
     if (PERSISTENT_UID !== hostId) return;
     const participants = Array.from(document.querySelectorAll('.speaker-item, .listener-item'))
@@ -182,7 +184,16 @@ if (socket) {
     });
 
     socket.on('user-joined', (data) => renderParticipants(data.allParticipants));
-    socket.on('user-left', (data) => renderParticipants(data.allParticipants));
+    
+    socket.on('user-left', (data) => {
+        // SELF-HEALING: If I was kicked, show modal and redirect
+        if (data.userId === PERSISTENT_UID && data.kicked) {
+            localStorage.removeItem('pulinjika_last_room');
+            if (kickedModal) kickedModal.classList.remove('hidden');
+            return;
+        }
+        renderParticipants(data.allParticipants);
+    });
 
     socket.on('role-updated', (data) => {
         if (data.userId === PERSISTENT_UID) {
@@ -404,9 +415,8 @@ document.getElementById('confirm-leave').onclick = () => {
     location.reload();
 };
 
-document.getElementById('room-ended-ok').onclick = () => {
-    location.reload();
-};
+document.getElementById('room-ended-ok').onclick = () => { location.reload(); };
+document.getElementById('kicked-ok').onclick = () => { location.reload(); };
 
 document.getElementById('copy-room-passkey').onclick = () => { navigator.clipboard.writeText(activePasskey); showToast("Passkey copied!"); };
 document.getElementById('close-user-menu').onclick = () => userMenu.classList.add('hidden');
