@@ -54,6 +54,24 @@
     ```
     The app will be available at `http://localhost:3000`.
 
+## 📱 Mobile App (Android)
+
+Pulinjika is built with **Capacitor**, allowing you to generate a native Android application from the same codebase.
+
+### Build Instructions:
+1.  **Open in Android Studio**:
+    ```bash
+    npx cap open android
+    ```
+2.  **Syncing Changes**: If you make changes to your web code in `public/`, run this to update the Android project:
+    ```bash
+    npx cap sync
+    ```
+3.  **Permissions**: The app is pre-configured with:
+    -   `RECORD_AUDIO` (For speaking on stage)
+    -   `INTERNET` (For real-time signaling)
+    -   `MODIFY_AUDIO_SETTINGS` (For optimized audio output)
+
 ## 🌐 Deployment
 
 -   **Backend**: Optimized for deployment on **Render** (handles ephemeral disk restarts automatically).
