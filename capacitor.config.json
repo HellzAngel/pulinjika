@@ -1,5 +1,10 @@
 {
   "appId": "com.pulinjika.app",
   "appName": "Pulinjika",
-  "webDir": "public"
+  "webDir": "public",
+  "plugins": {
+    "SplashScreen": {
+      "backgroundColor": "#ffffff"
+    }
+  }
 }

@@ -132,9 +132,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (splash) splash.style.display = 'none';
             if (savedPasskey && savedName) {
                 currentUser.name = savedName;
-                const tryJoin = () => socket.emit('join-room', { name: savedName, passkey: savedPasskey });
-                if (socket.connected) tryJoin();
-                else socket.once('connect', tryJoin);
+                // Re-joining is now handled globally by the socket 'connect' event
+                if (socket.connected) {
+                    socket.emit('join-room', { name: savedName, passkey: savedPasskey });
+                }
             } else {
                 if (lobby) lobby.classList.remove('hidden');
             }
@@ -147,6 +148,15 @@ document.addEventListener('DOMContentLoaded', () => {
 // SERVER EVENT HANDLERS
 // ================================================
 if (socket) {
+    // Self-Healing Reconnection
+    socket.on('connect', () => {
+        const savedPasskey = localStorage.getItem('pulinjika_last_room');
+        const savedName = localStorage.getItem('pulinjika_last_name');
+        if (savedPasskey && savedName && currentUser.name) {
+            socket.emit('join-room', { name: savedName, passkey: savedPasskey });
+        }
+    });
+
     socket.on('room-created', (room) => {
         activePasskey = room.passkey;
         hostId = room.hostId;
