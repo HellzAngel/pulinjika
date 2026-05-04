@@ -2,7 +2,6 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -10,12 +9,17 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Since Render disk is ephemeral, we rely on the Map 
-// and Client-Side "Self-Healing" if the Map is cleared.
 const rooms = new Map(); 
+const disconnectTimeouts = new Map();
 
 io.on('connection', (socket) => {
     const userId = socket.handshake.query.userId;
+
+    // Clear any pending disconnect timeout if user reconnected
+    if (disconnectTimeouts.has(userId)) {
+        clearTimeout(disconnectTimeouts.get(userId));
+        disconnectTimeouts.delete(userId);
+    }
 
     socket.on('create-room', (data) => {
         const passkey = data.recoverPasskey || `PLNK-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -37,16 +41,19 @@ io.on('connection', (socket) => {
         if (room) {
             socket.join(data.passkey);
             let user = room.participants.find(p => p.id === userId);
+            
             if (!user) {
-                user = { id: userId, socketId: socket.id, name: data.name, role: 'listener', isMuted: true };
+                // If Host reloads, ensure they get Speaker role back
+                const role = (userId === room.hostId) ? 'speaker' : 'listener';
+                user = { id: userId, socketId: socket.id, name: data.name, role: role, isMuted: true };
                 room.participants.push(user);
             } else {
                 user.socketId = socket.id;
             }
+
             io.to(data.passkey).emit('user-joined', { user, allParticipants: room.participants, hostId: room.hostId });
             socket.emit('join-success', { roomTitle: room.title, participants: room.participants, hostId: room.hostId, passkey: room.passkey });
         } else {
-            // Signal to the client that the room might need healing
             socket.emit('error', 'ROOM_NOT_FOUND');
         }
     });
@@ -55,7 +62,6 @@ io.on('connection', (socket) => {
         const room = rooms.get(data.passkey);
         if (room) {
             if (userId === room.hostId) {
-                // If Host leaves, close for EVERYONE
                 io.to(data.passkey).emit('room-closed');
                 rooms.delete(data.passkey);
             } else {
@@ -66,13 +72,19 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        rooms.forEach((room, key) => {
-            const pIdx = room.participants.findIndex(p => p.id === userId);
-            if (pIdx !== -1) {
-                room.participants.splice(pIdx, 1);
-                io.to(key).emit('user-left', { userId, allParticipants: room.participants });
-            }
-        });
+        // Wait 5 seconds before removing user to account for reloads
+        const timeout = setTimeout(() => {
+            rooms.forEach((room, key) => {
+                const pIdx = room.participants.findIndex(p => p.id === userId);
+                if (pIdx !== -1) {
+                    room.participants.splice(pIdx, 1);
+                    io.to(key).emit('user-left', { userId, allParticipants: room.participants });
+                }
+            });
+            disconnectTimeouts.delete(userId);
+        }, 5000); 
+
+        disconnectTimeouts.set(userId, timeout);
     });
 
     socket.on('toggle-mute', (data) => {
@@ -108,7 +120,6 @@ io.on('connection', (socket) => {
         if (room && userId === room.hostId) {
             room.participants = room.participants.filter(p => p.id !== data.userId);
             io.to(data.passkey).emit('user-left', { userId: data.userId, allParticipants: room.participants, kicked: true });
-            saveRooms(rooms);
         }
     });
 
@@ -126,4 +137,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Self-Healing Server on ${PORT}`));
+server.listen(PORT, () => console.log(`Stable Pulinjika on ${PORT}`));
