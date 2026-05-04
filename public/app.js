@@ -222,7 +222,12 @@ if (socket) {
 
     socket.on('user-muted', (data) => {
         const el = document.getElementById(`user-${data.userId}`);
-        if (el) el.classList.toggle('speaking', !data.isMuted);
+        if (el) {
+            el.classList.toggle('speaking', !data.isMuted);
+            el.dataset.muted = data.isMuted; // Sync the state so the menu knows!
+        }
+        
+        // If I was force-muted by Admin
         if (data.userId === PERSISTENT_UID && data.forced) {
             audio.setMute(true);
             const muteBtn = document.getElementById('mute-btn');
