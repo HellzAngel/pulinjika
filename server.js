@@ -15,7 +15,6 @@ const disconnectTimeouts = new Map();
 io.on('connection', (socket) => {
     const userId = socket.handshake.query.userId;
 
-    // Clear any pending disconnect timeout if user reconnected
     if (disconnectTimeouts.has(userId)) {
         clearTimeout(disconnectTimeouts.get(userId));
         disconnectTimeouts.delete(userId);
@@ -23,12 +22,27 @@ io.on('connection', (socket) => {
 
     socket.on('create-room', (data) => {
         const passkey = data.recoverPasskey || `PLNK-${Math.floor(1000 + Math.random() * 9000)}`;
+        
+        // If re-creating a lost room, try to preserve previous participants if they haven't timed out
+        let existingRoom = rooms.get(passkey);
+        const participants = existingRoom ? existingRoom.participants : [];
+        
+        // Ensure host is in the list and is a speaker
+        let hostEntry = participants.find(p => p.id === userId);
+        if (!hostEntry) {
+            hostEntry = { id: userId, socketId: socket.id, name: data.name, role: 'speaker', isMuted: true };
+            participants.push(hostEntry);
+        } else {
+            hostEntry.socketId = socket.id;
+            hostEntry.role = 'speaker';
+        }
+
         const roomData = {
             title: data.title,
             passkey: passkey,
             hostId: userId,
             createdAt: Date.now(),
-            participants: [{ id: userId, socketId: socket.id, name: data.name, role: 'speaker', isMuted: true }],
+            participants: participants,
             requests: []
         };
         rooms.set(passkey, roomData);
@@ -43,12 +57,13 @@ io.on('connection', (socket) => {
             let user = room.participants.find(p => p.id === userId);
             
             if (!user) {
-                // If Host reloads, ensure they get Speaker role back
                 const role = (userId === room.hostId) ? 'speaker' : 'listener';
                 user = { id: userId, socketId: socket.id, name: data.name, role: role, isMuted: true };
                 room.participants.push(user);
             } else {
                 user.socketId = socket.id;
+                // If it's the host rejoining, ensure they are speaker
+                if (userId === room.hostId) user.role = 'speaker';
             }
 
             io.to(data.passkey).emit('user-joined', { user, allParticipants: room.participants, hostId: room.hostId });
@@ -72,7 +87,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        // Wait 5 seconds before removing user to account for reloads
         const timeout = setTimeout(() => {
             rooms.forEach((room, key) => {
                 const pIdx = room.participants.findIndex(p => p.id === userId);
@@ -83,7 +97,6 @@ io.on('connection', (socket) => {
             });
             disconnectTimeouts.delete(userId);
         }, 5000); 
-
         disconnectTimeouts.set(userId, timeout);
     });
 
@@ -137,4 +150,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Stable Pulinjika on ${PORT}`));
+server.listen(PORT, () => console.log(`Production Pulinjika on ${PORT}`));
