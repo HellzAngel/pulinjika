@@ -112,6 +112,7 @@ function showUserMenu(userId) {
     
     document.getElementById('action-promote').classList.toggle('hidden', user.role === 'speaker');
     document.getElementById('action-mute-user').classList.toggle('hidden', user.role === 'listener' || user.isMuted || userId === hostId);
+    document.getElementById('action-make-host').classList.toggle('hidden', user.role === 'listener' || userId === hostId);
     document.getElementById('action-demote').classList.toggle('hidden', user.role === 'listener' || userId === hostId);
     document.getElementById('action-kick').classList.toggle('hidden', userId === hostId);
     userMenu.classList.remove('hidden');
@@ -251,6 +252,14 @@ if (socket) {
     socket.on('room-closed', () => {
         localStorage.removeItem('pulinjika_last_room');
         if (roomEndedModal) roomEndedModal.classList.remove('hidden');
+    });
+
+    socket.on('host-transferred', (data) => {
+        hostId = data.newHostId;
+        if (PERSISTENT_UID === hostId) {
+            showToast("You are now the Admin! 👑", "🎊");
+        }
+        renderParticipants(data.allParticipants);
     });
 
     socket.on('error', (msg) => {
@@ -410,6 +419,12 @@ document.getElementById('action-mute-user').onclick = () => {
     if (socket) socket.emit('mute-user', { passkey: activePasskey, userId: selectedUserId });
     userMenu.classList.add('hidden');
     showToast("User muted.", "🔇");
+};
+
+document.getElementById('action-make-host').onclick = () => {
+    if (socket) socket.emit('transfer-host', { passkey: activePasskey, userId: selectedUserId });
+    userMenu.classList.add('hidden');
+    showToast("Admin rights transferred.", "👑");
 };
 
 document.getElementById('action-demote').onclick = () => {

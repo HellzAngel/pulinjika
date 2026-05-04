@@ -147,6 +147,17 @@ io.on('connection', (socket) => {
             }
         }
     });
+
+    socket.on('transfer-host', (data) => {
+        const room = rooms.get(data.passkey);
+        if (room && userId === room.hostId) {
+            const newHost = room.participants.find(p => p.id === data.userId && p.role === 'speaker');
+            if (newHost) {
+                room.hostId = data.userId;
+                io.to(data.passkey).emit('host-transferred', { newHostId: data.userId, allParticipants: room.participants });
+            }
+        }
+    });
 });
 
 const PORT = process.env.PORT || 3000;
