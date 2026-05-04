@@ -88,6 +88,7 @@ function showToast(message, icon = '📋') {
 }
 
 const confirmModal = document.getElementById('confirm-modal');
+const roomEndedModal = document.getElementById('room-ended-modal');
 const userMenu = document.getElementById('user-menu');
 let selectedUserId = null;
 let activePasskey = null;
@@ -211,8 +212,6 @@ if (socket) {
     socket.on('user-muted', (data) => {
         const el = document.getElementById(`user-${data.userId}`);
         if (el) el.classList.toggle('speaking', !data.isMuted);
-        
-        // If I was force-muted by Admin
         if (data.userId === PERSISTENT_UID && data.forced) {
             audio.setMute(true);
             const muteBtn = document.getElementById('mute-btn');
@@ -225,8 +224,7 @@ if (socket) {
 
     socket.on('room-closed', () => {
         localStorage.removeItem('pulinjika_last_room');
-        alert("The host has closed the room.");
-        location.reload();
+        if (roomEndedModal) roomEndedModal.classList.remove('hidden');
     });
 
     socket.on('error', (msg) => {
@@ -337,7 +335,6 @@ document.getElementById('enter-created-room').onclick = () => {
 document.getElementById('mute-btn').onclick = async () => {
     const btn = document.getElementById('mute-btn');
     const currentlyMuted = btn.classList.contains('active');
-    
     if (currentlyMuted) {
         if (!audio.localAudioTrack) {
             const success = await audio.startSpeaking();
@@ -404,6 +401,10 @@ document.getElementById('cancel-leave').onclick = hideConfirm;
 document.getElementById('confirm-leave').onclick = () => {
     localStorage.removeItem('pulinjika_last_room');
     if (socket) socket.emit('leave-room', { passkey: activePasskey });
+    location.reload();
+};
+
+document.getElementById('room-ended-ok').onclick = () => {
     location.reload();
 };
 
