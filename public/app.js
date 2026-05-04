@@ -148,12 +148,20 @@ if (socket) {
         currentUser.role = 'speaker';
         localStorage.setItem('pulinjika_last_room', room.passkey);
         localStorage.setItem('pulinjika_last_name', currentUser.name);
-        localStorage.setItem('pulinjika_last_title', room.title); // Store title for healing
+        localStorage.setItem('pulinjika_last_title', room.title); 
         document.getElementById('passkey-code').textContent = room.passkey;
         document.getElementById('room-passkey-badge').textContent = room.passkey;
         document.getElementById('room-title-display').textContent = room.title;
         document.getElementById('passkey-display').classList.remove('hidden');
         document.getElementById('create-form').classList.add('hidden');
+        
+        // Default mic to OFF UI
+        const muteBtn = document.getElementById('mute-btn');
+        if (muteBtn) {
+            muteBtn.classList.add('active');
+            muteBtn.textContent = '🔇';
+        }
+
         renderParticipants(room.participants);
         showToast("Room created!", "🚀");
     });
@@ -167,6 +175,14 @@ if (socket) {
         localStorage.setItem('pulinjika_last_name', currentUser.name);
         document.getElementById('room-title-display').textContent = data.roomTitle;
         document.getElementById('room-passkey-badge').textContent = data.passkey;
+        
+        // Default mic to OFF UI
+        const muteBtn = document.getElementById('mute-btn');
+        if (muteBtn) {
+            muteBtn.classList.add('active');
+            muteBtn.textContent = '🔇';
+        }
+
         enterRoom();
         renderParticipants(data.participants);
         audio.join(activePasskey);
@@ -179,8 +195,15 @@ if (socket) {
         if (data.userId === PERSISTENT_UID) {
             const oldRole = currentUser.role;
             currentUser.role = data.role;
-            if (oldRole === 'listener' && data.role === 'speaker') showToast("You are now a Speaker! 🎤", "🎊");
-            else if (oldRole === 'speaker' && data.role === 'listener') {
+            if (oldRole === 'listener' && data.role === 'speaker') {
+                showToast("You are now a Speaker! 🎤", "🎊");
+                // Default to muted when promoted
+                const muteBtn = document.getElementById('mute-btn');
+                if (muteBtn) {
+                    muteBtn.classList.add('active');
+                    muteBtn.textContent = '🔇';
+                }
+            } else if (oldRole === 'speaker' && data.role === 'listener') {
                 showToast("Moved to Audience.", "🎧");
                 audio.stopSpeaking();
             }
@@ -212,22 +235,14 @@ if (socket) {
 
     socket.on('error', (msg) => {
         if (msg === 'ROOM_NOT_FOUND') {
-            // SELF-HEALING: If I was the host, re-create the room silently
             const savedTitle = localStorage.getItem('pulinjika_last_title');
             const savedName = localStorage.getItem('pulinjika_last_name');
             const savedPasskey = localStorage.getItem('pulinjika_last_room');
-            
             if (savedTitle && savedName && savedPasskey) {
-                console.log("Self-healing triggered for room:", savedPasskey);
-                socket.emit('create-room', { 
-                    title: savedTitle, 
-                    name: savedName, 
-                    recoverPasskey: savedPasskey 
-                });
+                socket.emit('create-room', { title: savedTitle, name: savedName, recoverPasskey: savedPasskey });
                 return;
             }
         }
-        
         showToast(msg, "❌");
         localStorage.removeItem('pulinjika_last_room');
         document.getElementById('lobby-screen').classList.remove('hidden');
@@ -324,14 +339,25 @@ document.getElementById('enter-created-room').onclick = () => {
 
 document.getElementById('mute-btn').onclick = async () => {
     const btn = document.getElementById('mute-btn');
-    if (!audio.localAudioTrack) {
-        const success = await audio.startSpeaking();
-        if (!success) return;
+    const currentlyMuted = btn.classList.contains('active');
+    
+    if (currentlyMuted) {
+        // Turning ON
+        if (!audio.localAudioTrack) {
+            const success = await audio.startSpeaking();
+            if (!success) return;
+        }
+        btn.classList.remove('active');
+        btn.textContent = '🎤';
+        audio.setMute(false);
+        if (socket) socket.emit('toggle-mute', { passkey: activePasskey, isMuted: false });
+    } else {
+        // Turning OFF
+        btn.classList.add('active');
+        btn.textContent = '🔇';
+        audio.setMute(true);
+        if (socket) socket.emit('toggle-mute', { passkey: activePasskey, isMuted: true });
     }
-    const isMuted = btn.classList.toggle('active');
-    audio.setMute(isMuted);
-    btn.textContent = isMuted ? '🔇' : '🎤';
-    if (socket) socket.emit('toggle-mute', { passkey: activePasskey, isMuted });
 };
 
 document.getElementById('raise-hand-btn').onclick = () => {
