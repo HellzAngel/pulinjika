@@ -91,6 +91,26 @@ io.on('connection', (socket) => {
         io.to(data.passkey).emit('new-reaction', { userId, emoji: data.emoji });
     });
 
+    socket.on('mute-user', (data) => {
+        const room = rooms.get(data.passkey);
+        if (room && userId === room.hostId) {
+            const p = room.participants.find(p => p.id === data.userId);
+            if (p) {
+                p.isMuted = true;
+                io.to(data.passkey).emit('user-muted', { userId: data.userId, isMuted: true, forced: true });
+            }
+        }
+    });
+
+    socket.on('kick-user', (data) => {
+        const room = rooms.get(data.passkey);
+        if (room && userId === room.hostId) {
+            room.participants = room.participants.filter(p => p.id !== data.userId);
+            io.to(data.passkey).emit('user-left', { userId: data.userId, allParticipants: room.participants, kicked: true });
+            saveRooms(rooms);
+        }
+    });
+
     socket.on('accept-speaker', (data) => {
         const room = rooms.get(data.passkey);
         if (room && userId === room.hostId) {

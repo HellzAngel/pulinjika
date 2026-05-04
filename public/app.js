@@ -99,14 +99,16 @@ function hideConfirm() { confirmModal.classList.add('hidden'); }
 function showUserMenu(userId) {
     if (PERSISTENT_UID !== hostId) return;
     const participants = Array.from(document.querySelectorAll('.speaker-item, .listener-item'))
-                         .map(el => ({ id: el.id.replace('user-', ''), name: el.dataset.name, role: el.dataset.role }));
+                         .map(el => ({ id: el.id.replace('user-', ''), name: el.dataset.name, role: el.dataset.role, isMuted: el.dataset.muted === 'true' }));
     const user = participants.find(p => p.id === userId);
     if (!user) return;
     selectedUserId = userId;
     document.getElementById('selected-user-name').textContent = user.name;
     document.getElementById('selected-user-role').textContent = user.role;
     document.getElementById('selected-user-avatar').querySelector('.avatar-inner').style.backgroundImage = `url('https://i.pravatar.cc/150?u=${userId}')`;
+    
     document.getElementById('action-promote').classList.toggle('hidden', user.role === 'speaker');
+    document.getElementById('action-mute-user').classList.toggle('hidden', user.role === 'listener' || user.isMuted || userId === hostId);
     document.getElementById('action-demote').classList.toggle('hidden', user.role === 'listener' || userId === hostId);
     document.getElementById('action-kick').classList.toggle('hidden', userId === hostId);
     userMenu.classList.remove('hidden');
@@ -155,13 +157,8 @@ if (socket) {
         document.getElementById('passkey-display').classList.remove('hidden');
         document.getElementById('create-form').classList.add('hidden');
         
-        // Default mic to OFF UI
         const muteBtn = document.getElementById('mute-btn');
-        if (muteBtn) {
-            muteBtn.classList.add('active');
-            muteBtn.textContent = '🔇';
-        }
-
+        if (muteBtn) { muteBtn.classList.add('active'); muteBtn.textContent = '🔇'; }
         renderParticipants(room.participants);
         showToast("Room created!", "🚀");
     });
@@ -176,13 +173,8 @@ if (socket) {
         document.getElementById('room-title-display').textContent = data.roomTitle;
         document.getElementById('room-passkey-badge').textContent = data.passkey;
         
-        // Default mic to OFF UI
         const muteBtn = document.getElementById('mute-btn');
-        if (muteBtn) {
-            muteBtn.classList.add('active');
-            muteBtn.textContent = '🔇';
-        }
-
+        if (muteBtn) { muteBtn.classList.add('active'); muteBtn.textContent = '🔇'; }
         enterRoom();
         renderParticipants(data.participants);
         audio.join(activePasskey);
@@ -197,12 +189,8 @@ if (socket) {
             currentUser.role = data.role;
             if (oldRole === 'listener' && data.role === 'speaker') {
                 showToast("You are now a Speaker! 🎤", "🎊");
-                // Default to muted when promoted
                 const muteBtn = document.getElementById('mute-btn');
-                if (muteBtn) {
-                    muteBtn.classList.add('active');
-                    muteBtn.textContent = '🔇';
-                }
+                if (muteBtn) { muteBtn.classList.add('active'); muteBtn.textContent = '🔇'; }
             } else if (oldRole === 'speaker' && data.role === 'listener') {
                 showToast("Moved to Audience.", "🎧");
                 audio.stopSpeaking();
@@ -223,6 +211,14 @@ if (socket) {
     socket.on('user-muted', (data) => {
         const el = document.getElementById(`user-${data.userId}`);
         if (el) el.classList.toggle('speaking', !data.isMuted);
+        
+        // If I was force-muted by Admin
+        if (data.userId === PERSISTENT_UID && data.forced) {
+            audio.setMute(true);
+            const muteBtn = document.getElementById('mute-btn');
+            if (muteBtn) { muteBtn.classList.add('active'); muteBtn.textContent = '🔇'; }
+            showToast("The Admin muted your microphone.", "🔇");
+        }
     });
 
     socket.on('new-reaction', (data) => spawnReaction(data.userId, data.emoji));
@@ -263,6 +259,7 @@ function renderParticipants(list) {
         div.id = `user-${p.id}`;
         div.dataset.name = p.name;
         div.dataset.role = p.role;
+        div.dataset.muted = p.isMuted;
         if (p.role === 'speaker') {
             div.className = `speaker-item ${!p.isMuted ? 'speaking' : ''} ${PERSISTENT_UID === hostId ? 'clickable' : ''}`;
             div.innerHTML = `
@@ -342,7 +339,6 @@ document.getElementById('mute-btn').onclick = async () => {
     const currentlyMuted = btn.classList.contains('active');
     
     if (currentlyMuted) {
-        // Turning ON
         if (!audio.localAudioTrack) {
             const success = await audio.startSpeaking();
             if (!success) return;
@@ -352,7 +348,6 @@ document.getElementById('mute-btn').onclick = async () => {
         audio.setMute(false);
         if (socket) socket.emit('toggle-mute', { passkey: activePasskey, isMuted: false });
     } else {
-        // Turning OFF
         btn.classList.add('active');
         btn.textContent = '🔇';
         audio.setMute(true);
@@ -379,13 +374,28 @@ document.getElementById('accept-request').onclick = () => {
     document.getElementById('host-notifications').classList.add('hidden');
 };
 
+document.getElementById('reject-request').onclick = () => {
+    document.getElementById('host-notifications').classList.add('hidden');
+};
+
 document.getElementById('action-promote').onclick = () => {
     if (socket) socket.emit('accept-speaker', { passkey: activePasskey, userId: selectedUserId });
     userMenu.classList.add('hidden');
 };
 
+document.getElementById('action-mute-user').onclick = () => {
+    if (socket) socket.emit('mute-user', { passkey: activePasskey, userId: selectedUserId });
+    userMenu.classList.add('hidden');
+    showToast("User muted.", "🔇");
+};
+
 document.getElementById('action-demote').onclick = () => {
     if (socket) socket.emit('accept-speaker', { passkey: activePasskey, userId: selectedUserId, demote: true });
+    userMenu.classList.add('hidden');
+};
+
+document.getElementById('action-kick').onclick = () => {
+    if (socket) socket.emit('kick-user', { passkey: activePasskey, userId: selectedUserId });
     userMenu.classList.add('hidden');
 };
 
