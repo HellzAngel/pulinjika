@@ -209,7 +209,7 @@ body {
     display: flex; 
     justify-content: center; 
     align-items: center;
-    gap: 25px; /* Uniform Gaps */
+    gap: 32px; /* Increased Gaps for better tap targets */
     padding: 20px 30px 40px; 
     flex-shrink: 0;
     background: var(--surface);
