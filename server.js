@@ -220,8 +220,8 @@ io.on('connection', (socket) => {
             const requesterIdx = room.adminIds.indexOf(userId);
             const targetIdx = room.adminIds.indexOf(data.userId);
 
-            // Can demote if target is lower in hierarchy OR if demoting self
-            if (targetIdx !== -1 && (requesterIdx < targetIdx || userId === data.userId)) {
+            // Can only demote someone lower in hierarchy (cannot demote self)
+            if (targetIdx !== -1 && requesterIdx < targetIdx) {
                 room.adminIds = room.adminIds.filter(id => id !== data.userId);
                 const p = room.participants.find(p => p.id === data.userId);
                 if (p) p.role = 'speaker';

@@ -133,13 +133,15 @@ function showUserMenu(userId) {
     // Senior can moderate Junior, and anyone can moderate themselves
     const canModerate = !isTargetAdmin || (myIndex !== -1 && (myIndex < targetIndex || userId === PERSISTENT_UID));
 
-    document.getElementById('action-promote').classList.toggle('hidden', user.role === 'speaker');
-    document.getElementById('action-mute-user').classList.toggle('hidden', user.role === 'listener' || user.isMuted || !canModerate);
+    const isSelf = userId === PERSISTENT_UID;
+
+    document.getElementById('action-promote').classList.toggle('hidden', user.role === 'speaker' || isSelf);
+    document.getElementById('action-mute-user').classList.toggle('hidden', user.role === 'listener' || user.isMuted || !canModerate || isSelf);
     document.getElementById('action-make-host').classList.toggle('hidden', user.role === 'listener' || isTargetAdmin);
-    document.getElementById('action-remove-admin').classList.toggle('hidden', !isTargetAdmin || !canModerate);
+    document.getElementById('action-remove-admin').classList.toggle('hidden', !isTargetAdmin || !canModerate || isSelf);
     // Cannot move to audience if they are still an admin
-    document.getElementById('action-demote').classList.toggle('hidden', user.role === 'listener' || isTargetAdmin || !canModerate);
-    document.getElementById('action-kick').classList.toggle('hidden', !canModerate);
+    document.getElementById('action-demote').classList.toggle('hidden', user.role === 'listener' || isTargetAdmin || !canModerate || isSelf);
+    document.getElementById('action-kick').classList.toggle('hidden', !canModerate || isSelf);
     userMenu.classList.remove('hidden');
 }
 
