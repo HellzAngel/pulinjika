@@ -127,11 +127,17 @@ function showUserMenu(userId) {
     document.getElementById('selected-user-role').textContent = user.role;
     document.getElementById('selected-user-avatar').querySelector('.avatar-inner').style.backgroundImage = `url('${getAvatarUrl(userId)}')`;
     
+    const myIndex = adminIds.indexOf(PERSISTENT_UID);
+    const targetIndex = adminIds.indexOf(userId);
+    const isTargetAdmin = targetIndex !== -1;
+    const canModerate = !isTargetAdmin || (myIndex !== -1 && myIndex < targetIndex);
+
     document.getElementById('action-promote').classList.toggle('hidden', user.role === 'speaker');
-    document.getElementById('action-mute-user').classList.toggle('hidden', user.role === 'listener' || user.isMuted || adminIds.includes(userId));
-    document.getElementById('action-make-host').classList.toggle('hidden', user.role === 'listener' || adminIds.includes(userId));
-    document.getElementById('action-demote').classList.toggle('hidden', user.role === 'listener' || adminIds.includes(userId));
-    document.getElementById('action-kick').classList.toggle('hidden', adminIds.includes(userId));
+    document.getElementById('action-mute-user').classList.toggle('hidden', user.role === 'listener' || user.isMuted || !canModerate);
+    document.getElementById('action-make-host').classList.toggle('hidden', user.role === 'listener' || isTargetAdmin);
+    document.getElementById('action-remove-admin').classList.toggle('hidden', !isTargetAdmin || !canModerate);
+    document.getElementById('action-demote').classList.toggle('hidden', user.role === 'listener' || !canModerate);
+    document.getElementById('action-kick').classList.toggle('hidden', !canModerate);
     userMenu.classList.remove('hidden');
 }
 
@@ -255,6 +261,7 @@ if (socket) {
     });
 
     socket.on('role-updated', (data) => {
+        if (data.adminIds) adminIds = data.adminIds;
         if (data.userId === PERSISTENT_UID) {
             const oldRole = currentUser.role;
             currentUser.role = data.role;
@@ -306,6 +313,14 @@ if (socket) {
         adminIds = data.adminIds;
         if (data.newAdminId === PERSISTENT_UID) {
             showToast("You are now an Admin! 👑", "🎊");
+        }
+        renderParticipants(data.allParticipants);
+    });
+
+    socket.on('admin-demoted', (data) => {
+        adminIds = data.adminIds;
+        if (data.demotedId === PERSISTENT_UID) {
+            showToast("Your admin privileges were removed.", "📉");
         }
         renderParticipants(data.allParticipants);
     });
@@ -490,6 +505,11 @@ document.getElementById('action-make-host').onclick = () => {
 
 document.getElementById('action-demote').onclick = () => {
     if (socket) socket.emit('accept-speaker', { passkey: activePasskey, userId: selectedUserId, demote: true });
+    userMenu.classList.add('hidden');
+};
+
+document.getElementById('action-remove-admin').onclick = () => {
+    if (socket) socket.emit('demote-admin', { passkey: activePasskey, userId: selectedUserId });
     userMenu.classList.add('hidden');
 };
 

@@ -144,6 +144,12 @@ io.on('connection', (socket) => {
     socket.on('mute-user', (data) => {
         const room = rooms.get(data.passkey);
         if (room && room.adminIds.includes(userId)) {
+            const requesterIdx = room.adminIds.indexOf(userId);
+            const targetIdx = room.adminIds.indexOf(data.userId);
+
+            // If target is an admin, requester must be higher hierarchy (lower index)
+            if (targetIdx !== -1 && requesterIdx >= targetIdx) return;
+
             const p = room.participants.find(p => p.id === data.userId);
             if (p) {
                 p.isMuted = true;
@@ -155,7 +161,13 @@ io.on('connection', (socket) => {
     socket.on('kick-user', (data) => {
         const room = rooms.get(data.passkey);
         if (room && room.adminIds.includes(userId)) {
+            const requesterIdx = room.adminIds.indexOf(userId);
+            const targetIdx = room.adminIds.indexOf(data.userId);
+
+            if (targetIdx !== -1 && requesterIdx >= targetIdx) return;
+
             room.participants = room.participants.filter(p => p.id !== data.userId);
+            room.adminIds = room.adminIds.filter(id => id !== data.userId); // Remove from admins if they were one
             io.to(data.passkey).emit('user-left', { userId: data.userId, allParticipants: room.participants, kicked: true });
         }
     });
@@ -163,11 +175,20 @@ io.on('connection', (socket) => {
     socket.on('accept-speaker', (data) => {
         const room = rooms.get(data.passkey);
         if (room && room.adminIds.includes(userId)) {
+            const requesterIdx = room.adminIds.indexOf(userId);
+            const targetIdx = room.adminIds.indexOf(data.userId);
+
+            if (targetIdx !== -1 && requesterIdx >= targetIdx) return;
+
             const p = room.participants.find(p => p.id === data.userId);
             if (p) {
                 p.role = data.demote ? 'listener' : 'speaker';
-                if (data.demote) p.isMuted = true;
-                io.to(data.passkey).emit('role-updated', { userId: data.userId, role: p.role, allParticipants: room.participants });
+                if (data.demote) {
+                    p.isMuted = true;
+                    // If demoted to listener, also remove from admins if they were one
+                    room.adminIds = room.adminIds.filter(id => id !== data.userId);
+                }
+                io.to(data.passkey).emit('role-updated', { userId: data.userId, role: p.role, allParticipants: room.participants, adminIds: room.adminIds });
             }
         }
     });
@@ -183,6 +204,24 @@ io.on('connection', (socket) => {
                 
                 io.to(data.passkey).emit('admin-promoted', { 
                     newAdminId: data.userId, 
+                    adminIds: room.adminIds,
+                    allParticipants: room.participants 
+                });
+            }
+        }
+    });
+
+    socket.on('demote-admin', (data) => {
+        const room = rooms.get(data.passkey);
+        if (room && room.adminIds.includes(userId)) {
+            const requesterIdx = room.adminIds.indexOf(userId);
+            const targetIdx = room.adminIds.indexOf(data.userId);
+
+            // Can only demote someone lower in hierarchy
+            if (targetIdx !== -1 && requesterIdx < targetIdx) {
+                room.adminIds = room.adminIds.filter(id => id !== data.userId);
+                io.to(data.passkey).emit('admin-demoted', { 
+                    demotedId: data.userId, 
                     adminIds: room.adminIds,
                     allParticipants: room.participants 
                 });
