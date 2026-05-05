@@ -217,8 +217,8 @@ io.on('connection', (socket) => {
             const requesterIdx = room.adminIds.indexOf(userId);
             const targetIdx = room.adminIds.indexOf(data.userId);
 
-            // Can only demote someone lower in hierarchy
-            if (targetIdx !== -1 && requesterIdx < targetIdx) {
+            // Can demote if target is lower in hierarchy OR if demoting self
+            if (targetIdx !== -1 && (requesterIdx < targetIdx || userId === data.userId)) {
                 room.adminIds = room.adminIds.filter(id => id !== data.userId);
                 io.to(data.passkey).emit('admin-demoted', { 
                     demotedId: data.userId, 

@@ -130,7 +130,8 @@ function showUserMenu(userId) {
     const myIndex = adminIds.indexOf(PERSISTENT_UID);
     const targetIndex = adminIds.indexOf(userId);
     const isTargetAdmin = targetIndex !== -1;
-    const canModerate = !isTargetAdmin || (myIndex !== -1 && myIndex < targetIndex);
+    // Senior can moderate Junior, and anyone can moderate themselves
+    const canModerate = !isTargetAdmin || (myIndex !== -1 && (myIndex < targetIndex || userId === PERSISTENT_UID));
 
     document.getElementById('action-promote').classList.toggle('hidden', user.role === 'speaker');
     document.getElementById('action-mute-user').classList.toggle('hidden', user.role === 'listener' || user.isMuted || !canModerate);
