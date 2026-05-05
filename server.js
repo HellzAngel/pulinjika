@@ -34,7 +34,7 @@ io.on('connection', (socket) => {
         // Ensure host is in the list and is a speaker
         let hostEntry = participants.find(p => p.id === userId);
         if (!hostEntry) {
-            hostEntry = { id: userId, socketId: socket.id, name: data.name, role: 'speaker', isMuted: true };
+            hostEntry = { id: userId, socketId: socket.id, name: (data.name || 'Unknown').substring(0, 10), role: 'speaker', isMuted: true };
             participants.push(hostEntry);
         } else {
             hostEntry.socketId = socket.id;
@@ -62,7 +62,7 @@ io.on('connection', (socket) => {
             
             if (!user) {
                 const role = room.adminIds.includes(userId) ? 'speaker' : 'listener';
-                user = { id: userId, socketId: socket.id, name: data.name, role: role, isMuted: true };
+                user = { id: userId, socketId: socket.id, name: (data.name || 'Unknown').substring(0, 10), role: role, isMuted: true };
                 room.participants.push(user);
             } else {
                 user.socketId = socket.id;
