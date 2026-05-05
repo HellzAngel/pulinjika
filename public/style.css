@@ -173,9 +173,9 @@ body {
     display: flex; align-items: center; justify-content: center;
 }
 
-.room-body { flex: 1; overflow-y: auto; padding: 10px 20px 20px; }
-.room-section { margin-bottom: 32px; }
-.room-section h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--txt-m); margin-bottom: 16px; padding-left: 4px; }
+.room-body { flex: 1; overflow-y: auto; padding: 5px 15px 15px; }
+.room-section { margin-bottom: 20px; }
+.room-section h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--txt-m); margin-bottom: 12px; padding-left: 4px; }
 
 .host-notifications {
     background: var(--surface);
@@ -189,20 +189,20 @@ body {
 .notif-btn.accept { background: var(--green); color: white; }
 .notif-btn.reject { background: var(--surface); color: var(--red); }
 
-.speaker-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.speaker-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .speaker-item { display: flex; flex-direction: column; align-items: center; text-align: center; }
-.avatar-lg { width: 76px; height: 76px; border-radius: 26px; background: var(--surface); box-shadow: var(--out); position: relative; margin-bottom: 10px; padding: 4px; }
+.avatar-lg { width: 72px; height: 72px; border-radius: 24px; background: var(--surface); box-shadow: var(--out); position: relative; margin-bottom: 8px; padding: 4px; }
 .avatar-inner { width: 100%; height: 100%; border-radius: 22px; background-size: contain; background-repeat: no-repeat; background-position: center; box-shadow: var(--in-sm); }
 .speaking-ring { position: absolute; inset: -3px; border-radius: 29px; border: 3px solid var(--green); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
 .speaking .speaking-ring { opacity: 1; box-shadow: 0 0 14px var(--green); animation: glow 1.5s infinite alternate; }
 @keyframes glow { from { box-shadow: 0 0 6px var(--green); } to { box-shadow: 0 0 22px var(--green); } }
 .speaker-name { font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 4px; color: var(--txt); }
 
-.listener-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.listener-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.avatar-md { width: 48px; height: 48px; border-radius: 16px; background: var(--surface); box-shadow: var(--out-sm); background-size: contain; background-repeat: no-repeat; background-position: center; position: relative; }
-.admin-badge-small { position: absolute; bottom: -6px; right: -6px; width: 22px; height: 22px; background: var(--surface); box-shadow: var(--out-sm); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; border: 1px solid rgba(255,255,255,0.5); z-index: 2; }
-.listener-name-label { font-size: 0.65rem; font-weight: 500; color: var(--txt-m); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60px; }
+.listener-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.listener-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.avatar-md { width: 44px; height: 44px; border-radius: 14px; background: var(--surface); box-shadow: var(--out-sm); background-size: contain; background-repeat: no-repeat; background-position: center; position: relative; }
+.admin-badge-small { position: absolute; bottom: -4px; right: -4px; width: 20px; height: 20px; background: var(--surface); box-shadow: var(--out-sm); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; border: 1px solid rgba(255,255,255,0.5); z-index: 2; }
+.listener-name-label { font-size: 0.6rem; font-weight: 500; color: var(--txt-m); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55px; }
 
 /* Room Controls - CENTERED & EQUAL GAPS */
 .room-controls {
