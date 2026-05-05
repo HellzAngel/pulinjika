@@ -23,6 +23,7 @@ body {
     overflow: hidden; 
     width: 100vw;
     height: 100vh;
+    height: 100dvh; /* Dynamic height for mobile browsers */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -144,6 +145,7 @@ body {
     width: 100%; 
     max-width: 800px; /* Enhanced Desktop Width */
     height: 100vh;
+    height: 100dvh;
     background: var(--surface);
     display: flex; flex-direction: column;
     box-shadow: var(--out);
@@ -275,8 +277,8 @@ body {
 /* --- Mobile Fixes --- */
 @media (max-width: 480px) {
     .room-screen { max-width: 100%; border-radius: 0; }
-    .room-controls { padding: 15px 15px 35px; gap: 20px; }
-    .control-btn { width: 56px; height: 56px; font-size: 1.4rem; }
+    .room-controls { padding: 12px 12px 28px; gap: 18px; }
+    .control-btn { width: 50px; height: 50px; font-size: 1.2rem; }
     .speaker-grid { gap: 15px; }
     .avatar-lg { width: 70px; height: 70px; }
 }
