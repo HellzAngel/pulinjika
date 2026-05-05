@@ -175,10 +175,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     socket.emit('join-room', { name: savedName, passkey: savedPasskey });
                 }
                 
-                // Safety: if we don't enter a room in 5 seconds, show lobby
+                // Safety: if we don't enter a room in 1 second, show lobby
                 setTimeout(() => {
                     if (!activePasskey && lobby) lobby.classList.remove('hidden');
-                }, 5000);
+                }, 1000);
             } else {
                 if (lobby) lobby.classList.remove('hidden');
             }
