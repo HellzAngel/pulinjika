@@ -108,7 +108,7 @@ function showUserMenu(userId) {
     selectedUserId = userId;
     document.getElementById('selected-user-name').textContent = user.name;
     document.getElementById('selected-user-role').textContent = user.role;
-    document.getElementById('selected-user-avatar').querySelector('.avatar-inner').style.backgroundImage = `url('https://i.pravatar.cc/150?u=${userId}')`;
+    document.getElementById('selected-user-avatar').querySelector('.avatar-inner').style.backgroundImage = `url('https://api.dicebear.com/9.x/bottts/svg?seed=${userId}')`;
     
     document.getElementById('action-promote').classList.toggle('hidden', user.role === 'speaker');
     document.getElementById('action-mute-user').classList.toggle('hidden', user.role === 'listener' || user.isMuted || adminIds.includes(userId));
@@ -300,7 +300,7 @@ function renderParticipants(list) {
             div.className = `speaker-item ${!p.isMuted ? 'speaking' : ''} ${adminIds.includes(PERSISTENT_UID) ? 'clickable' : ''}`;
             div.innerHTML = `
                 <div class="avatar-lg">
-                    <div class="avatar-inner" style="background-image: url('https://i.pravatar.cc/150?u=${p.id}')"></div>
+                    <div class="avatar-inner" style="background-image: url('https://api.dicebear.com/9.x/bottts/svg?seed=${p.id}')"></div>
                     <div class="speaking-ring"></div>
                     <div class="reaction-container" id="react-cont-${p.id}"></div>
                 </div>
@@ -311,7 +311,7 @@ function renderParticipants(list) {
         } else {
             div.className = `listener-item ${adminIds.includes(PERSISTENT_UID) ? 'clickable' : ''}`;
             div.innerHTML = `
-                <div class="avatar-md" style="background-image: url('https://i.pravatar.cc/150?u=${p.id}')">
+                <div class="avatar-md" style="background-image: url('https://api.dicebear.com/9.x/bottts/svg?seed=${p.id}')">
                     <div class="reaction-container" id="react-cont-${p.id}"></div>
                     ${adminIds.includes(p.id) ? '<div class="admin-badge-small">👑</div>' : ''}
                 </div>

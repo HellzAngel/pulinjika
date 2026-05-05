@@ -192,7 +192,7 @@ body {
 .speaker-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .speaker-item { display: flex; flex-direction: column; align-items: center; text-align: center; }
 .avatar-lg { width: 76px; height: 76px; border-radius: 26px; background: var(--surface); box-shadow: var(--out); position: relative; margin-bottom: 10px; padding: 4px; }
-.avatar-inner { width: 100%; height: 100%; border-radius: 22px; background-size: cover; background-position: center; box-shadow: var(--in-sm); }
+.avatar-inner { width: 100%; height: 100%; border-radius: 22px; background-size: contain; background-repeat: no-repeat; background-position: center; box-shadow: var(--in-sm); }
 .speaking-ring { position: absolute; inset: -3px; border-radius: 29px; border: 3px solid var(--green); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
 .speaking .speaking-ring { opacity: 1; box-shadow: 0 0 14px var(--green); animation: glow 1.5s infinite alternate; }
 @keyframes glow { from { box-shadow: 0 0 6px var(--green); } to { box-shadow: 0 0 22px var(--green); } }
@@ -200,7 +200,7 @@ body {
 
 .listener-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
 .listener-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.avatar-md { width: 48px; height: 48px; border-radius: 16px; background: var(--surface); box-shadow: var(--out-sm); background-size: cover; background-position: center; position: relative; }
+.avatar-md { width: 48px; height: 48px; border-radius: 16px; background: var(--surface); box-shadow: var(--out-sm); background-size: contain; background-repeat: no-repeat; background-position: center; position: relative; }
 .admin-badge-small { position: absolute; bottom: -6px; right: -6px; width: 22px; height: 22px; background: var(--surface); box-shadow: var(--out-sm); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; border: 1px solid rgba(255,255,255,0.5); z-index: 2; }
 .listener-name-label { font-size: 0.65rem; font-weight: 500; color: var(--txt-m); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60px; }
 
