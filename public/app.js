@@ -5,7 +5,14 @@ const BACKEND_URL = "https://pulinjika.onrender.com";
 let socket;
 
 function getAvatarUrl(seed) {
-    const collections = ['bottts', 'adventurer', 'avataaars', 'big-smile', 'lorelei', 'notionists', 'pixel-art', 'shapes'];
+    const collections = [
+        'adventurer', 'adventurer-neutral', 'avataaars', 'avataaars-neutral', 
+        'big-ears', 'big-ears-neutral', 'big-smile', 'bottts', 'bottts-neutral', 
+        'croodles', 'croodles-neutral', 'fun-emoji', 'icons', 'identicon', 
+        'lorelei', 'lorelei-neutral', 'micah', 'miniavs', 'notionists', 
+        'open-peeps', 'personas', 'pixel-art', 'pixel-art-neutral', 
+        'rings', 'shapes', 'thumbs'
+    ];
     let hash = 0;
     for (let i = 0; i < seed.length; i++) {
         hash = seed.charCodeAt(i) + ((hash << 5) - hash);
