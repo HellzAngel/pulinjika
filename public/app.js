@@ -94,13 +94,13 @@ const userMenu = document.getElementById('user-menu');
 let selectedUserId = null;
 let activePasskey = null;
 let currentUser = { name: '', id: PERSISTENT_UID, role: 'listener' };
-let hostId = null;
+let adminIds = [];
 
 function showConfirm() { confirmModal.classList.remove('hidden'); }
 function hideConfirm() { confirmModal.classList.add('hidden'); }
 
 function showUserMenu(userId) {
-    if (PERSISTENT_UID !== hostId) return;
+    if (!adminIds.includes(PERSISTENT_UID)) return;
     const participants = Array.from(document.querySelectorAll('.speaker-item, .listener-item'))
                          .map(el => ({ id: el.id.replace('user-', ''), name: el.dataset.name, role: el.dataset.role, isMuted: el.dataset.muted === 'true' }));
     const user = participants.find(p => p.id === userId);
@@ -111,10 +111,10 @@ function showUserMenu(userId) {
     document.getElementById('selected-user-avatar').querySelector('.avatar-inner').style.backgroundImage = `url('https://i.pravatar.cc/150?u=${userId}')`;
     
     document.getElementById('action-promote').classList.toggle('hidden', user.role === 'speaker');
-    document.getElementById('action-mute-user').classList.toggle('hidden', user.role === 'listener' || user.isMuted || userId === hostId);
-    document.getElementById('action-make-host').classList.toggle('hidden', user.role === 'listener' || userId === hostId);
-    document.getElementById('action-demote').classList.toggle('hidden', user.role === 'listener' || userId === hostId);
-    document.getElementById('action-kick').classList.toggle('hidden', userId === hostId);
+    document.getElementById('action-mute-user').classList.toggle('hidden', user.role === 'listener' || user.isMuted || adminIds.includes(userId));
+    document.getElementById('action-make-host').classList.toggle('hidden', user.role === 'listener' || adminIds.includes(userId));
+    document.getElementById('action-demote').classList.toggle('hidden', user.role === 'listener' || adminIds.includes(userId));
+    document.getElementById('action-kick').classList.toggle('hidden', adminIds.includes(userId));
     userMenu.classList.remove('hidden');
 }
 
@@ -160,7 +160,7 @@ if (socket) {
 
     socket.on('room-created', (room) => {
         activePasskey = room.passkey;
-        hostId = room.hostId;
+        adminIds = room.adminIds;
         currentUser.role = 'speaker';
         localStorage.setItem('pulinjika_last_room', room.passkey);
         localStorage.setItem('pulinjika_last_name', currentUser.name);
@@ -179,7 +179,7 @@ if (socket) {
 
     socket.on('join-success', (data) => {
         activePasskey = data.passkey;
-        hostId = data.hostId;
+        adminIds = data.adminIds;
         const me = data.participants.find(p => p.id === PERSISTENT_UID);
         if (me) currentUser.role = me.role;
         localStorage.setItem('pulinjika_last_room', data.passkey);
@@ -194,7 +194,10 @@ if (socket) {
         audio.join(activePasskey);
     });
 
-    socket.on('user-joined', (data) => renderParticipants(data.allParticipants));
+    socket.on('user-joined', (data) => {
+        adminIds = data.adminIds || adminIds;
+        renderParticipants(data.allParticipants);
+    });
     
     socket.on('user-left', (data) => {
         // SELF-HEALING: If I was kicked, show modal and redirect
@@ -223,7 +226,7 @@ if (socket) {
     });
 
     socket.on('hand-raised', (user) => {
-        if (PERSISTENT_UID === hostId) {
+        if (adminIds.includes(PERSISTENT_UID)) {
             const notifEl = document.getElementById('host-notifications');
             notifEl.classList.remove('hidden');
             document.getElementById('requester-name').textContent = user.name;
@@ -254,10 +257,10 @@ if (socket) {
         if (roomEndedModal) roomEndedModal.classList.remove('hidden');
     });
 
-    socket.on('host-transferred', (data) => {
-        hostId = data.newHostId;
-        if (PERSISTENT_UID === hostId) {
-            showToast("You are now the Admin! 👑", "🎊");
+    socket.on('admin-promoted', (data) => {
+        adminIds = data.adminIds;
+        if (data.newAdminId === PERSISTENT_UID) {
+            showToast("You are now an Admin! 👑", "🎊");
         }
         renderParticipants(data.allParticipants);
     });
@@ -294,25 +297,25 @@ function renderParticipants(list) {
         div.dataset.role = p.role;
         div.dataset.muted = p.isMuted;
         if (p.role === 'speaker') {
-            div.className = `speaker-item ${!p.isMuted ? 'speaking' : ''} ${PERSISTENT_UID === hostId ? 'clickable' : ''}`;
+            div.className = `speaker-item ${!p.isMuted ? 'speaking' : ''} ${adminIds.includes(PERSISTENT_UID) ? 'clickable' : ''}`;
             div.innerHTML = `
                 <div class="avatar-lg">
                     <div class="avatar-inner" style="background-image: url('https://i.pravatar.cc/150?u=${p.id}')"></div>
                     <div class="speaking-ring"></div>
                     <div class="reaction-container" id="react-cont-${p.id}"></div>
                 </div>
-                <span class="speaker-name">${p.name} ${p.id === hostId ? '👑' : ''} ${p.id === PERSISTENT_UID ? '✳️' : ''}</span>
+                <span class="speaker-name">${p.name} ${adminIds.includes(p.id) ? '👑' : ''} ${p.id === PERSISTENT_UID ? '✳️' : ''}</span>
             `;
-            if (PERSISTENT_UID === hostId) div.onclick = () => showUserMenu(p.id);
+            if (adminIds.includes(PERSISTENT_UID)) div.onclick = () => showUserMenu(p.id);
             speakerGrid.appendChild(div);
         } else {
-            div.className = `listener-item ${PERSISTENT_UID === hostId ? 'clickable' : ''}`;
+            div.className = `listener-item ${adminIds.includes(PERSISTENT_UID) ? 'clickable' : ''}`;
             div.innerHTML = `
                 <div class="avatar-md" style="background-image: url('https://i.pravatar.cc/150?u=${p.id}')">
                     <div class="reaction-container" id="react-cont-${p.id}"></div>
                 </div>
             `;
-            if (PERSISTENT_UID === hostId) div.onclick = () => showUserMenu(p.id);
+            if (adminIds.includes(PERSISTENT_UID)) div.onclick = () => showUserMenu(p.id);
             listenerGrid.appendChild(div);
         }
     });
@@ -422,9 +425,9 @@ document.getElementById('action-mute-user').onclick = () => {
 };
 
 document.getElementById('action-make-host').onclick = () => {
-    if (socket) socket.emit('transfer-host', { passkey: activePasskey, userId: selectedUserId });
+    if (socket) socket.emit('promote-admin', { passkey: activePasskey, userId: selectedUserId });
     userMenu.classList.add('hidden');
-    showToast("Admin rights transferred.", "👑");
+    showToast("Admin promoted.", "👑");
 };
 
 document.getElementById('action-demote').onclick = () => {

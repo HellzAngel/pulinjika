@@ -40,7 +40,7 @@ io.on('connection', (socket) => {
         const roomData = {
             title: data.title,
             passkey: passkey,
-            hostId: userId,
+            adminIds: [userId],
             createdAt: Date.now(),
             participants: participants,
             requests: []
@@ -57,17 +57,17 @@ io.on('connection', (socket) => {
             let user = room.participants.find(p => p.id === userId);
             
             if (!user) {
-                const role = (userId === room.hostId) ? 'speaker' : 'listener';
+                const role = room.adminIds.includes(userId) ? 'speaker' : 'listener';
                 user = { id: userId, socketId: socket.id, name: data.name, role: role, isMuted: true };
                 room.participants.push(user);
             } else {
                 user.socketId = socket.id;
-                // If it's the host rejoining, ensure they are speaker
-                if (userId === room.hostId) user.role = 'speaker';
+                // If it's an admin rejoining, ensure they are speaker
+                if (room.adminIds.includes(userId)) user.role = 'speaker';
             }
 
-            io.to(data.passkey).emit('user-joined', { user, allParticipants: room.participants, hostId: room.hostId });
-            socket.emit('join-success', { roomTitle: room.title, participants: room.participants, hostId: room.hostId, passkey: room.passkey });
+            io.to(data.passkey).emit('user-joined', { user, allParticipants: room.participants, adminIds: room.adminIds });
+            socket.emit('join-success', { roomTitle: room.title, participants: room.participants, adminIds: room.adminIds, passkey: room.passkey });
         } else {
             socket.emit('error', 'ROOM_NOT_FOUND');
         }
@@ -76,11 +76,13 @@ io.on('connection', (socket) => {
     socket.on('leave-room', (data) => {
         const room = rooms.get(data.passkey);
         if (room) {
-            if (userId === room.hostId) {
+            room.participants = room.participants.filter(p => p.id !== userId);
+            const activeAdmins = room.participants.filter(p => room.adminIds.includes(p.id));
+            
+            if (activeAdmins.length === 0) {
                 io.to(data.passkey).emit('room-closed');
                 rooms.delete(data.passkey);
             } else {
-                room.participants = room.participants.filter(p => p.id !== userId);
                 io.to(data.passkey).emit('user-left', { userId, allParticipants: room.participants });
             }
         }
@@ -92,7 +94,14 @@ io.on('connection', (socket) => {
                 const pIdx = room.participants.findIndex(p => p.id === userId);
                 if (pIdx !== -1) {
                     room.participants.splice(pIdx, 1);
-                    io.to(key).emit('user-left', { userId, allParticipants: room.participants });
+                    
+                    const activeAdmins = room.participants.filter(p => room.adminIds.includes(p.id));
+                    if (activeAdmins.length === 0) {
+                        io.to(key).emit('room-closed');
+                        rooms.delete(key);
+                    } else {
+                        io.to(key).emit('user-left', { userId, allParticipants: room.participants });
+                    }
                 }
             });
             disconnectTimeouts.delete(userId);
@@ -119,7 +128,7 @@ io.on('connection', (socket) => {
 
     socket.on('mute-user', (data) => {
         const room = rooms.get(data.passkey);
-        if (room && userId === room.hostId) {
+        if (room && room.adminIds.includes(userId)) {
             const p = room.participants.find(p => p.id === data.userId);
             if (p) {
                 p.isMuted = true;
@@ -130,7 +139,7 @@ io.on('connection', (socket) => {
 
     socket.on('kick-user', (data) => {
         const room = rooms.get(data.passkey);
-        if (room && userId === room.hostId) {
+        if (room && room.adminIds.includes(userId)) {
             room.participants = room.participants.filter(p => p.id !== data.userId);
             io.to(data.passkey).emit('user-left', { userId: data.userId, allParticipants: room.participants, kicked: true });
         }
@@ -138,7 +147,7 @@ io.on('connection', (socket) => {
 
     socket.on('accept-speaker', (data) => {
         const room = rooms.get(data.passkey);
-        if (room && userId === room.hostId) {
+        if (room && room.adminIds.includes(userId)) {
             const p = room.participants.find(p => p.id === data.userId);
             if (p) {
                 p.role = data.demote ? 'listener' : 'speaker';
@@ -148,13 +157,20 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('transfer-host', (data) => {
+    socket.on('promote-admin', (data) => {
         const room = rooms.get(data.passkey);
-        if (room && userId === room.hostId) {
-            const newHost = room.participants.find(p => p.id === data.userId && p.role === 'speaker');
-            if (newHost) {
-                room.hostId = data.userId;
-                io.to(data.passkey).emit('host-transferred', { newHostId: data.userId, allParticipants: room.participants });
+        if (room && room.adminIds.includes(userId)) {
+            if (!room.adminIds.includes(data.userId)) {
+                room.adminIds.push(data.userId);
+                // Ensure the new admin is also a speaker
+                const user = room.participants.find(p => p.id === data.userId);
+                if (user) user.role = 'speaker';
+                
+                io.to(data.passkey).emit('admin-promoted', { 
+                    newAdminId: data.userId, 
+                    adminIds: room.adminIds,
+                    allParticipants: room.participants 
+                });
             }
         }
     });
