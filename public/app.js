@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (splash) splash.style.display = 'none';
         }, 500);
     };
-    setTimeout(finishLoading, 5000);
+    setTimeout(finishLoading, 4000);
 });
 
 // ================================================
