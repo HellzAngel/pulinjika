@@ -4,6 +4,16 @@
 const BACKEND_URL = "https://pulinjika.onrender.com";
 let socket;
 
+function getAvatarUrl(seed) {
+    const collections = ['bottts', 'adventurer', 'avataaars', 'big-smile', 'lorelei', 'notionists', 'pixel-art', 'shapes'];
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+        hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % collections.length;
+    return `https://api.dicebear.com/9.x/${collections[index]}/svg?seed=${seed}`;
+}
+
 if (!localStorage.getItem('pulinjika_uid')) {
     localStorage.setItem('pulinjika_uid', 'user_' + Math.random().toString(36).substr(2, 9));
 }
@@ -108,7 +118,7 @@ function showUserMenu(userId) {
     selectedUserId = userId;
     document.getElementById('selected-user-name').textContent = user.name;
     document.getElementById('selected-user-role').textContent = user.role;
-    document.getElementById('selected-user-avatar').querySelector('.avatar-inner').style.backgroundImage = `url('https://api.dicebear.com/9.x/bottts/svg?seed=${userId}')`;
+    document.getElementById('selected-user-avatar').querySelector('.avatar-inner').style.backgroundImage = `url('${getAvatarUrl(userId)}')`;
     
     document.getElementById('action-promote').classList.toggle('hidden', user.role === 'speaker');
     document.getElementById('action-mute-user').classList.toggle('hidden', user.role === 'listener' || user.isMuted || adminIds.includes(userId));
@@ -339,7 +349,7 @@ function renderParticipants(list) {
             div.className = `speaker-item ${!p.isMuted ? 'speaking' : ''} ${adminIds.includes(PERSISTENT_UID) ? 'clickable' : ''}`;
             div.innerHTML = `
                 <div class="avatar-lg">
-                    <div class="avatar-inner" style="background-image: url('https://api.dicebear.com/9.x/bottts/svg?seed=${p.id}')"></div>
+                    <div class="avatar-inner" style="background-image: url('${getAvatarUrl(p.id)}')"></div>
                     <div class="speaking-ring"></div>
                     <div class="reaction-container" id="react-cont-${p.id}"></div>
                 </div>
@@ -350,7 +360,7 @@ function renderParticipants(list) {
         } else {
             div.className = `listener-item ${adminIds.includes(PERSISTENT_UID) ? 'clickable' : ''}`;
             div.innerHTML = `
-                <div class="avatar-md" style="background-image: url('https://api.dicebear.com/9.x/bottts/svg?seed=${p.id}')">
+                <div class="avatar-md" style="background-image: url('${getAvatarUrl(p.id)}')">
                     <div class="reaction-container" id="react-cont-${p.id}"></div>
                     ${adminIds.includes(p.id) ? '<div class="admin-badge-small">👑</div>' : ''}
                 </div>
