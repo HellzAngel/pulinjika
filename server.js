@@ -11,6 +11,12 @@ const io = new Server(server, {
     pingTimeout: 5000 
 });
 
+app.use((req, res, next) => {
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self' *");
+    res.setHeader('X-Frame-Options', 'ALLOWALL');
+    next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 const rooms = new Map(); 
