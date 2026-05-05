@@ -50,7 +50,8 @@ io.on('connection', (socket) => {
         const roomData = {
             title: data.title,
             passkey: passkey,
-            adminIds: [userId],
+            adminIds: existingRoom ? existingRoom.adminIds : [userId],
+            speakerIds: existingRoom ? existingRoom.speakerIds : [userId],
             createdAt: Date.now(),
             participants: participants,
             requests: []
@@ -67,7 +68,9 @@ io.on('connection', (socket) => {
             let user = room.participants.find(p => p.id === userId);
             
             if (!user) {
-                const role = room.adminIds.includes(userId) ? 'speaker' : 'listener';
+                const isAdmin = room.adminIds.includes(userId);
+                const isSpeaker = room.speakerIds.includes(userId);
+                const role = (isAdmin || isSpeaker) ? 'speaker' : 'listener';
                 user = { id: userId, socketId: socket.id, name: (data.name || 'Unknown').substring(0, 10), role: role, isMuted: true };
                 room.participants.push(user);
             } else {
@@ -188,8 +191,14 @@ io.on('connection', (socket) => {
                 p.role = data.demote ? 'listener' : 'speaker';
                 if (data.demote) {
                     p.isMuted = true;
-                    // If demoted to listener, also remove from admins if they were one
+                    // Remove from admins and speakers
                     room.adminIds = room.adminIds.filter(id => id !== data.userId);
+                    room.speakerIds = room.speakerIds.filter(id => id !== data.userId);
+                } else {
+                    // Add to speakers if promoted
+                    if (!room.speakerIds.includes(data.userId)) {
+                        room.speakerIds.push(data.userId);
+                    }
                 }
                 io.to(data.passkey).emit('role-updated', { userId: data.userId, role: p.role, allParticipants: room.participants, adminIds: room.adminIds });
             }
@@ -201,6 +210,10 @@ io.on('connection', (socket) => {
         if (room && room.adminIds.includes(userId)) {
             if (!room.adminIds.includes(data.userId)) {
                 room.adminIds.push(data.userId);
+                // Also ensure they are in speakerIds
+                if (!room.speakerIds.includes(data.userId)) {
+                    room.speakerIds.push(data.userId);
+                }
                 // Ensure the new admin is also a speaker
                 const user = room.participants.find(p => p.id === data.userId);
                 if (user) user.role = 'speaker';
