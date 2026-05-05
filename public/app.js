@@ -162,26 +162,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const finishLoading = () => {
         if (splash) splash.classList.add('fade-out');
+        
+        // Reveal the lobby immediately behind the fading splash
+        if (!(savedPasskey && savedName)) {
+            if (lobby) lobby.classList.remove('hidden');
+        } else {
+            // If re-joining, show it after 1s if room not entered
+            setTimeout(() => {
+                if (!activePasskey && lobby) lobby.classList.remove('hidden');
+            }, 1000);
+        }
+
         setTimeout(() => {
             if (splash) splash.style.display = 'none';
-            
-            // If we have a saved session, the socket 'connect' event will handle it
-            // but we show the lobby after a timeout if re-joining hasn't happened
-            if (savedPasskey && savedName) {
-                console.log("Attempting to restore session...");
-                // The global 'connect' handler handles the emit
-                // If we're already connected, emit now
-                if (socket && socket.connected) {
-                    socket.emit('join-room', { name: savedName, passkey: savedPasskey });
-                }
-                
-                // Safety: if we don't enter a room in 1 second, show lobby
-                setTimeout(() => {
-                    if (!activePasskey && lobby) lobby.classList.remove('hidden');
-                }, 1000);
-            } else {
-                if (lobby) lobby.classList.remove('hidden');
-            }
         }, 500);
     };
     setTimeout(finishLoading, 5000);
