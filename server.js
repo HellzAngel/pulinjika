@@ -5,7 +5,11 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, { 
+    cors: { origin: "*" },
+    pingInterval: 10000,
+    pingTimeout: 5000 
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -108,7 +112,7 @@ io.on('connection', (socket) => {
                 }
             });
             disconnectTimeouts.delete(userId);
-        }, 5000); 
+        }, 300000); 
         disconnectTimeouts.set(userId, timeout);
     });
 
