@@ -62,14 +62,8 @@ io.on('connection', (socket) => {
                 room.participants.push(user);
             } else {
                 user.socketId = socket.id;
-                // If it's an admin rejoining, ensure they are speaker. 
-                // Otherwise, ensure they rejoin as a listener.
-                if (room.adminIds.includes(userId)) {
-                    user.role = 'speaker';
-                } else {
-                    user.role = 'listener';
-                    user.isMuted = true;
-                }
+                // If it's an admin rejoining, ensure they are speaker
+                if (room.adminIds.includes(userId)) user.role = 'speaker';
             }
 
             io.to(data.passkey).emit('user-joined', { user, allParticipants: room.participants, adminIds: room.adminIds });
@@ -82,6 +76,9 @@ io.on('connection', (socket) => {
     socket.on('leave-room', (data) => {
         const room = rooms.get(data.passkey);
         if (room) {
+            // Remove from adminIds if they were an admin
+            room.adminIds = room.adminIds.filter(id => id !== userId);
+            
             room.participants = room.participants.filter(p => p.id !== userId);
             const activeAdmins = room.participants.filter(p => room.adminIds.includes(p.id));
             
