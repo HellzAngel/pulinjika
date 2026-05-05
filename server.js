@@ -96,13 +96,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        // Calculate grace period based on role
-        let isAdmin = false;
-        rooms.forEach(room => {
-            if (room.adminIds.includes(userId)) isAdmin = true;
-        });
-
-        const gracePeriod = isAdmin ? 300000 : 120000; // 5 min for admins, 2 min for others
+        const gracePeriod = 300000; // 5 min for everyone to support backgrounding
 
         const timeout = setTimeout(() => {
             rooms.forEach((room, key) => {
