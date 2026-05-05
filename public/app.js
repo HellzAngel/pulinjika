@@ -171,6 +171,10 @@ if (socket) {
         document.getElementById('passkey-display').classList.remove('hidden');
         document.getElementById('create-form').classList.add('hidden');
         
+        // Auto-hide modals if we successfully re-create/re-join
+        if (roomEndedModal) roomEndedModal.classList.add('hidden');
+        if (kickedModal) kickedModal.classList.add('hidden');
+
         const muteBtn = document.getElementById('mute-btn');
         if (muteBtn) { muteBtn.classList.add('active'); muteBtn.textContent = '🔇'; }
         renderParticipants(room.participants);
@@ -198,6 +202,11 @@ if (socket) {
         
         const muteBtn = document.getElementById('mute-btn');
         if (muteBtn) { muteBtn.classList.add('active'); muteBtn.textContent = '🔇'; }
+        
+        // Auto-hide modals if we successfully re-join
+        if (roomEndedModal) roomEndedModal.classList.add('hidden');
+        if (kickedModal) kickedModal.classList.add('hidden');
+
         enterRoom();
         renderParticipants(data.participants);
         audio.join(activePasskey);
