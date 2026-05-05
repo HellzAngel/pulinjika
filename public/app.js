@@ -118,6 +118,7 @@ let currentUser = {
     role: 'listener' 
 };
 let adminIds = [];
+let currentParticipants = []; // Local cache for consistent rendering
 
 function showConfirm() { confirmModal.classList.remove('hidden'); }
 function hideConfirm() { confirmModal.classList.add('hidden'); }
@@ -212,7 +213,8 @@ if (socket) {
 
         const muteBtn = document.getElementById('mute-btn');
         if (muteBtn) { muteBtn.classList.add('active'); muteBtn.textContent = '🔇'; }
-        renderParticipants(room.participants);
+        currentParticipants = room.participants;
+        renderParticipants(currentParticipants);
         showToast("Room created!", "🚀");
 
         // Background Audio Support
@@ -244,7 +246,8 @@ if (socket) {
         if (kickedModal) kickedModal.classList.add('hidden');
 
         enterRoom();
-        renderParticipants(data.participants);
+        currentParticipants = data.participants;
+        renderParticipants(currentParticipants);
         audio.join(activePasskey);
         
         // Background Audio Support (Media Session API)
@@ -259,7 +262,8 @@ if (socket) {
 
     socket.on('user-joined', (data) => {
         adminIds = data.adminIds || adminIds;
-        renderParticipants(data.allParticipants);
+        currentParticipants = data.allParticipants;
+        renderParticipants(currentParticipants);
     });
     
     socket.on('user-left', (data) => {
@@ -269,7 +273,8 @@ if (socket) {
             if (kickedModal) kickedModal.classList.remove('hidden');
             return;
         }
-        renderParticipants(data.allParticipants);
+        currentParticipants = data.allParticipants;
+        renderParticipants(currentParticipants);
     });
 
     socket.on('role-updated', (data) => {
@@ -286,7 +291,8 @@ if (socket) {
                 audio.stopSpeaking();
             }
         }
-        renderParticipants(data.allParticipants);
+        currentParticipants = data.allParticipants;
+        renderParticipants(currentParticipants);
     });
 
     socket.on('hand-raised', (user) => {
@@ -299,10 +305,13 @@ if (socket) {
     });
 
     socket.on('user-muted', (data) => {
+        const p = currentParticipants.find(p => p.id === data.userId);
+        if (p) p.isMuted = data.isMuted;
+        
         const el = document.getElementById(`user-${data.userId}`);
         if (el) {
             el.classList.toggle('speaking', !data.isMuted);
-            el.dataset.muted = data.isMuted; // Sync the state so the menu knows!
+            el.dataset.muted = data.isMuted;
         }
         
         // If I was force-muted by Admin
@@ -326,7 +335,8 @@ if (socket) {
         if (data.newAdminId === PERSISTENT_UID) {
             showToast("You are now an Admin! 👑", "🎊");
         }
-        renderParticipants(data.allParticipants);
+        currentParticipants = data.allParticipants;
+        renderParticipants(currentParticipants);
     });
 
     socket.on('admin-demoted', (data) => {
@@ -334,7 +344,8 @@ if (socket) {
         if (data.demotedId === PERSISTENT_UID) {
             showToast("Your admin privileges were removed.", "📉");
         }
-        renderParticipants(data.allParticipants);
+        currentParticipants = data.allParticipants;
+        renderParticipants(currentParticipants);
     });
 
     socket.on('error', (msg) => {
