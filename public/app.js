@@ -461,3 +461,10 @@ document.querySelectorAll('.lobby-tab').forEach(t => t.onclick = (e) => {
     t.classList.add('active');
     document.getElementById(`panel-${t.dataset.tab}`).classList.add('active');
 });
+
+// Immediate exit on tab close
+window.addEventListener('beforeunload', () => {
+    if (socket && activePasskey) {
+        socket.emit('leave-room', { passkey: activePasskey });
+    }
+});
