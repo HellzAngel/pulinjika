@@ -313,7 +313,9 @@ function renderParticipants(list) {
             div.innerHTML = `
                 <div class="avatar-md" style="background-image: url('https://i.pravatar.cc/150?u=${p.id}')">
                     <div class="reaction-container" id="react-cont-${p.id}"></div>
+                    ${adminIds.includes(p.id) ? '<div class="admin-badge-small">👑</div>' : ''}
                 </div>
+                <span class="listener-name-label">${p.name} ${p.id === PERSISTENT_UID ? '✳️' : ''}</span>
             `;
             if (adminIds.includes(PERSISTENT_UID)) div.onclick = () => showUserMenu(p.id);
             listenerGrid.appendChild(div);
