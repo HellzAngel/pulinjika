@@ -175,6 +175,15 @@ if (socket) {
         if (muteBtn) { muteBtn.classList.add('active'); muteBtn.textContent = '🔇'; }
         renderParticipants(room.participants);
         showToast("Room created!", "🚀");
+
+        // Background Audio Support
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: room.title || 'Pulinjika Room',
+                artist: 'Pulinjika',
+                artwork: [{ src: 'pulinjika_logo.png', sizes: '512x512', type: 'image/png' }]
+            });
+        }
     });
 
     socket.on('join-success', (data) => {
@@ -192,6 +201,15 @@ if (socket) {
         enterRoom();
         renderParticipants(data.participants);
         audio.join(activePasskey);
+        
+        // Background Audio Support (Media Session API)
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: data.roomTitle || 'Pulinjika Room',
+                artist: 'Pulinjika',
+                artwork: [{ src: 'pulinjika_logo.png', sizes: '512x512', type: 'image/png' }]
+            });
+        }
     });
 
     socket.on('user-joined', (data) => {
