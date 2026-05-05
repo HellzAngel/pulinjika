@@ -197,6 +197,7 @@ if (socket) {
         if (me) currentUser.role = me.role;
         localStorage.setItem('pulinjika_last_room', data.passkey);
         localStorage.setItem('pulinjika_last_name', currentUser.name);
+        localStorage.setItem('pulinjika_last_title', data.roomTitle); // All participants save title for recovery
         document.getElementById('room-title-display').textContent = data.roomTitle;
         document.getElementById('room-passkey-badge').textContent = data.passkey;
         
@@ -297,8 +298,19 @@ if (socket) {
             const savedTitle = localStorage.getItem('pulinjika_last_title');
             const savedName = localStorage.getItem('pulinjika_last_name');
             const savedPasskey = localStorage.getItem('pulinjika_last_room');
+            
             if (savedTitle && savedName && savedPasskey) {
-                socket.emit('create-room', { title: savedTitle, name: savedName, recoverPasskey: savedPasskey });
+                // If I'm an admin, I can re-create it
+                if (adminIds.includes(PERSISTENT_UID)) {
+                    socket.emit('create-room', { title: savedTitle, name: savedName, recoverPasskey: savedPasskey });
+                } else {
+                    // If I'm a listener, wait and retry joining in 5 seconds
+                    setTimeout(() => {
+                        if (localStorage.getItem('pulinjika_last_room')) {
+                            socket.emit('join-room', { name: savedName, passkey: savedPasskey });
+                        }
+                    }, 5000);
+                }
                 return;
             }
         }
