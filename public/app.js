@@ -1,7 +1,9 @@
 // ================================================
 // PRODUCTION CONFIG
 // ================================================
-const BACKEND_URL = "https://pulinjika.onrender.com";
+const BACKEND_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') 
+    ? "http://localhost:3000" 
+    : window.location.origin.replace('https://pulinjika.vercel.app', 'https://pulinjika.onrender.com'); 
 let socket;
 
 function getAvatarUrl(seed) {
@@ -110,7 +112,11 @@ const kickedModal = document.getElementById('kicked-modal');
 const userMenu = document.getElementById('user-menu');
 let selectedUserId = null;
 let activePasskey = null;
-let currentUser = { name: '', id: PERSISTENT_UID, role: 'listener' };
+let currentUser = { 
+    name: localStorage.getItem('pulinjika_last_name') || '', 
+    id: PERSISTENT_UID, 
+    role: 'listener' 
+};
 let adminIds = [];
 
 function showConfirm() { confirmModal.classList.remove('hidden'); }
@@ -158,18 +164,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (splash) splash.classList.add('fade-out');
         setTimeout(() => {
             if (splash) splash.style.display = 'none';
+            
+            // If we have a saved session, the socket 'connect' event will handle it
+            // but we show the lobby after a timeout if re-joining hasn't happened
             if (savedPasskey && savedName) {
-                currentUser.name = savedName;
-                // Re-joining is now handled globally by the socket 'connect' event
-                if (socket.connected) {
+                console.log("Attempting to restore session...");
+                // The global 'connect' handler handles the emit
+                // If we're already connected, emit now
+                if (socket && socket.connected) {
                     socket.emit('join-room', { name: savedName, passkey: savedPasskey });
                 }
+                
+                // Safety: if we don't enter a room in 5 seconds, show lobby
+                setTimeout(() => {
+                    if (!activePasskey && lobby) lobby.classList.remove('hidden');
+                }, 5000);
             } else {
                 if (lobby) lobby.classList.remove('hidden');
             }
         }, 500);
     };
-    setTimeout(finishLoading, 2500);
+    setTimeout(finishLoading, 2000);
 });
 
 // ================================================
