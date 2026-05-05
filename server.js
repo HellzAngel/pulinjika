@@ -220,10 +220,21 @@ io.on('connection', (socket) => {
             // Can demote if target is lower in hierarchy OR if demoting self
             if (targetIdx !== -1 && (requesterIdx < targetIdx || userId === data.userId)) {
                 room.adminIds = room.adminIds.filter(id => id !== data.userId);
+                const p = room.participants.find(p => p.id === data.userId);
+                if (p) p.role = 'speaker';
+
                 io.to(data.passkey).emit('admin-demoted', { 
                     demotedId: data.userId, 
                     adminIds: room.adminIds,
                     allParticipants: room.participants 
+                });
+                
+                // Also broadcast role update to ensure UI stays perfectly in sync
+                io.to(data.passkey).emit('role-updated', { 
+                    userId: data.userId, 
+                    role: 'speaker', 
+                    allParticipants: room.participants, 
+                    adminIds: room.adminIds 
                 });
             }
         }
