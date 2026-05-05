@@ -137,7 +137,8 @@ function showUserMenu(userId) {
     document.getElementById('action-mute-user').classList.toggle('hidden', user.role === 'listener' || user.isMuted || !canModerate);
     document.getElementById('action-make-host').classList.toggle('hidden', user.role === 'listener' || isTargetAdmin);
     document.getElementById('action-remove-admin').classList.toggle('hidden', !isTargetAdmin || !canModerate);
-    document.getElementById('action-demote').classList.toggle('hidden', user.role === 'listener' || !canModerate);
+    // Cannot move to audience if they are still an admin
+    document.getElementById('action-demote').classList.toggle('hidden', user.role === 'listener' || isTargetAdmin || !canModerate);
     document.getElementById('action-kick').classList.toggle('hidden', !canModerate);
     userMenu.classList.remove('hidden');
 }

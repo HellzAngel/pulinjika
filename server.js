@@ -178,6 +178,9 @@ io.on('connection', (socket) => {
             const requesterIdx = room.adminIds.indexOf(userId);
             const targetIdx = room.adminIds.indexOf(data.userId);
 
+            // Cannot move an active admin to the audience directly
+            if (data.demote && targetIdx !== -1) return;
+
             if (targetIdx !== -1 && requesterIdx >= targetIdx) return;
 
             const p = room.participants.find(p => p.id === data.userId);
