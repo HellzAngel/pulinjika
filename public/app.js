@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, 500);
     };
-    setTimeout(finishLoading, 2000);
+    setTimeout(finishLoading, 1000);
 });
 
 // ================================================
