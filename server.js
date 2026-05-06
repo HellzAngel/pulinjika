@@ -105,7 +105,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        const gracePeriod = 300000; // 5 min for everyone to support backgrounding
+        const gracePeriod = 600000; // 10 min for everyone to support backgrounding
 
         const timeout = setTimeout(() => {
             rooms.forEach((room, key) => {

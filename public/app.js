@@ -190,6 +190,21 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(finishLoading, 4000);
 });
 
+// Handle Background/Foreground Transitions
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        // When coming back to foreground, ensure we are still in the room
+        const savedPasskey = localStorage.getItem('pulinjika_last_room');
+        const savedName = localStorage.getItem('pulinjika_last_name');
+        if (savedPasskey && savedName && socket && !socket.connected) {
+            socket.connect();
+        }
+    } else {
+        // App minimized - Optional: Add a heartbeat or log
+        console.log("App minimized, background audio and grace period active.");
+    }
+});
+
 // ================================================
 // SERVER EVENT HANDLERS
 // ================================================
