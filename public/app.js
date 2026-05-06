@@ -70,8 +70,17 @@ class AudioEngine {
                 AEC: true, ANS: true, AGC: true
             });
             await this.client.publish([this.localAudioTrack]);
-            return true;
-        } catch (e) { return false; }
+            return { success: true };
+        } catch (e) {
+            console.error("Microphone access failed", e);
+            let msg = "Could not access microphone.";
+            if (e.code === 'PERMISSION_DENIED') {
+                msg = "Microphone access denied. Please enable it in your browser settings.";
+            } else if (e.code === 'NOT_SUPPORTED') {
+                msg = "Microphone not supported on this device/browser.";
+            }
+            return { success: false, error: msg };
+        }
     }
 
     async stopSpeaking() {
@@ -471,8 +480,11 @@ document.getElementById('mute-btn').onclick = async () => {
     const currentlyMuted = btn.classList.contains('active');
     if (currentlyMuted) {
         if (!audio.localAudioTrack) {
-            const success = await audio.startSpeaking();
-            if (!success) return;
+            const result = await audio.startSpeaking();
+            if (!result.success) {
+                showToast(result.error, "🔇");
+                return;
+            }
         }
         btn.classList.remove('active');
         btn.textContent = '🎤';
