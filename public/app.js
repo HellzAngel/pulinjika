@@ -1,9 +1,9 @@
 // ================================================
 // PRODUCTION CONFIG
 // ================================================
-const BACKEND_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') 
-    ? "http://localhost:3000" 
-    : window.location.origin.replace('https://pulinjika.vercel.app', 'https://pulinjika.onrender.com'); 
+const BACKEND_URL = (window.Capacitor && window.Capacitor.getPlatform() !== 'web') || !['localhost', '127.0.0.1'].includes(window.location.hostname)
+    ? "https://pulinjika.onrender.com"
+    : "http://localhost:3000";
 let socket;
 
 function getAvatarUrl(seed) {
