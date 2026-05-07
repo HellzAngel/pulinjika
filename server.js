@@ -82,6 +82,7 @@ io.on('connection', (socket) => {
                 room.participants.push(user);
             } else {
                 user.socketId = socket.id;
+                user.isMuted = true; // Reset mute on rejoin to prevent "speaking" ghosting
                 // If it's an admin rejoining, ensure they are speaker
                 if (room.adminIds.includes(userId)) user.role = 'speaker';
             }
@@ -96,8 +97,9 @@ io.on('connection', (socket) => {
     socket.on('leave-room', (data) => {
         const room = rooms.get(data.passkey);
         if (room) {
-            // Remove from adminIds if they were an admin
+            // Remove from adminIds and speakerIds if they were one
             room.adminIds = room.adminIds.filter(id => id !== userId);
+            room.speakerIds = room.speakerIds.filter(id => id !== userId);
             
             room.participants = room.participants.filter(p => p.id !== userId);
             const activeAdmins = room.participants.filter(p => room.adminIds.includes(p.id));
@@ -119,6 +121,8 @@ io.on('connection', (socket) => {
                 const pIdx = room.participants.findIndex(p => p.id === userId);
                 if (pIdx !== -1) {
                     room.participants.splice(pIdx, 1);
+                    room.speakerIds = room.speakerIds.filter(id => id !== userId);
+                    room.adminIds = room.adminIds.filter(id => id !== userId);
                     
                     const activeAdmins = room.participants.filter(p => room.adminIds.includes(p.id));
                     if (activeAdmins.length === 0) {
