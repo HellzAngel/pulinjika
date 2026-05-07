@@ -203,8 +203,10 @@ body {
     padding: 16px 20px;
     margin-bottom: 24px;
     display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
 }
-.notif-btn { border: none; padding: 8px 16px; border-radius: 10px; font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer; box-shadow: var(--out-sm); transition: all 0.2s; }
+.notif-actions { display: flex; gap: 8px; }
+.notif-btn { border: none; padding: 10px 16px; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; box-shadow: var(--out-sm); transition: all 0.2s; white-space: nowrap; }
 .notif-btn.accept { background: var(--green); color: white; }
 .notif-btn.reject { background: var(--surface); color: var(--red); }
 
@@ -277,8 +279,11 @@ body {
 /* --- Mobile Fixes --- */
 @media (max-width: 480px) {
     .room-screen { max-width: 100%; border-radius: 0; }
-    .room-controls { padding: 12px 12px 28px; gap: 18px; }
-    .control-btn { width: 50px; height: 50px; font-size: 1.2rem; }
+    .host-notifications { flex-direction: column; text-align: center; gap: 16px; }
+    .notif-actions { width: 100%; }
+    .notif-btn { flex: 1; padding: 12px; }
+    .room-controls { padding: 16px 12px 32px; gap: 14px; } /* Reduced gap to prevent overlap */
+    .control-btn { width: 52px; height: 52px; font-size: 1.25rem; }
     .speaker-grid { gap: 15px; }
     .avatar-lg { width: 70px; height: 70px; }
 }
