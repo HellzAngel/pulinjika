@@ -102,12 +102,14 @@ const audio = new AudioEngine();
 // ================================================
 // UI UTILITIES
 // ================================================
-function showToast(message, icon = '📋') {
+function showToast(message, icon = '📋', isError = false) {
     const toast = document.getElementById('toast');
     if (!toast) return;
     const msgEl = document.getElementById('toast-message');
     toast.querySelector('.toast-icon').textContent = icon;
     msgEl.textContent = message;
+    
+    toast.classList.toggle('error', isError);
     toast.classList.remove('hidden', 'fade-out');
     setTimeout(() => {
         toast.classList.add('fade-out');
@@ -393,7 +395,7 @@ if (socket) {
                 return;
             }
         }
-        showToast(msg, "❌");
+        showToast(msg, "❌", true);
         if (!msg.includes('Name already taken')) {
             localStorage.removeItem('pulinjika_last_room');
         }
@@ -499,7 +501,7 @@ document.getElementById('mute-btn').onclick = async () => {
         if (!audio.localAudioTrack) {
             const result = await audio.startSpeaking();
             if (!result.success) {
-                showToast(result.error, "🔇");
+                showToast(result.error, "🔇", true);
                 return;
             }
         }
