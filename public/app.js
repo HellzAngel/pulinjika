@@ -198,12 +198,14 @@ document.addEventListener('visibilitychange', () => {
         // When coming back to foreground, ensure we are still in the room
         const savedPasskey = localStorage.getItem('pulinjika_last_room');
         const savedName = localStorage.getItem('pulinjika_last_name');
-        if (savedPasskey && savedName && socket && !socket.connected) {
-            socket.connect();
+        if (savedPasskey && savedName && socket) {
+            if (!socket.connected) {
+                socket.connect();
+            } else {
+                // Proactively verify room still exists even if socket stayed connected
+                socket.emit('join-room', { name: savedName, passkey: savedPasskey });
+            }
         }
-    } else {
-        // App minimized - Optional: Add a heartbeat or log
-        console.log("App minimized, background audio and grace period active.");
     }
 });
 
