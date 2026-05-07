@@ -64,6 +64,13 @@ io.on('connection', (socket) => {
     socket.on('join-room', (data) => {
         const room = rooms.get(data.passkey);
         if (room) {
+            // Check if name is already taken by ANOTHER user
+            const nameTaken = room.participants.some(p => p.name.toLowerCase() === (data.name || '').toLowerCase() && p.id !== userId);
+            if (nameTaken) {
+                socket.emit('error', 'Name already taken in this room.');
+                return;
+            }
+
             socket.join(data.passkey);
             let user = room.participants.find(p => p.id === userId);
             

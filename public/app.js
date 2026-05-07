@@ -394,7 +394,9 @@ if (socket) {
             }
         }
         showToast(msg, "❌");
-        localStorage.removeItem('pulinjika_last_room');
+        if (!msg.includes('Name already taken')) {
+            localStorage.removeItem('pulinjika_last_room');
+        }
         document.getElementById('lobby-screen').classList.remove('hidden');
     });
 }
