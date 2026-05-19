@@ -175,6 +175,33 @@ function showToast(message, icon = '📋', isError = false) {
     }, 4000);
 }
 
+// Robust clipboard copy — works in Android Capacitor WebView
+// navigator.clipboard requires HTTPS/secure context and often fails silently.
+function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+            .then(() => showToast('Passkey copied!', '📋'))
+            .catch(() => fallbackCopy(text));
+    } else {
+        fallbackCopy(text);
+    }
+}
+function fallbackCopy(text) {
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+    document.body.appendChild(el);
+    el.focus();
+    el.select();
+    try {
+        document.execCommand('copy');
+        showToast('Passkey copied!', '📋');
+    } catch {
+        showToast('Copy failed — select the passkey manually.', '⚠️', true);
+    }
+    document.body.removeChild(el);
+}
+
 const confirmModal = document.getElementById('confirm-modal');
 const roomEndedModal = document.getElementById('room-ended-modal');
 const kickedModal = document.getElementById('kicked-modal');
@@ -722,7 +749,8 @@ document.getElementById('confirm-leave').onclick = () => {
 document.getElementById('room-ended-ok').onclick = () => { location.reload(); };
 document.getElementById('kicked-ok').onclick = () => { location.reload(); };
 
-document.getElementById('copy-room-passkey').onclick = () => { navigator.clipboard.writeText(activePasskey); showToast("Passkey copied!"); };
+document.getElementById('copy-room-passkey').onclick = () => copyToClipboard(activePasskey);
+document.getElementById('copy-passkey').onclick = () => copyToClipboard(activePasskey);
 document.getElementById('close-user-menu').onclick = () => userMenu.classList.add('hidden');
 
 document.querySelectorAll('.lobby-tab').forEach(t => t.onclick = (e) => {
