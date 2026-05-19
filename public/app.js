@@ -31,10 +31,68 @@ const PERSISTENT_UID = localStorage.getItem('pulinjika_uid');
 try {
     socket = io(BACKEND_URL, {
         query: { userId: PERSISTENT_UID },
-        reconnection: true
+        reconnection: true,
+        reconnectionAttempts: Infinity,   // never give up
+        reconnectionDelay: 1000,          // start at 1s
+        reconnectionDelayMax: 15000,      // cap at 15s
+        randomizationFactor: 0.4,         // add jitter
+        timeout: 20000                    // connection timeout
     });
 } catch (e) {
     console.error("Socket.io failed", e);
+}
+
+// ================================================
+// KEEP-ALIVE: Prevent Render free-tier from sleeping
+// Pings the server every 25s so it never goes idle.
+// ================================================
+setInterval(() => {
+    if (socket && socket.connected) {
+        socket.emit('heartbeat');
+    }
+}, 25000);
+
+// ================================================
+// CONNECTION STATUS INDICATOR
+// ================================================
+function updateConnectionDot() {
+    const dot = document.getElementById('conn-dot');
+    const label = document.getElementById('conn-label');
+    if (!dot || !label) return;
+    const connected = socket && socket.connected;
+    dot.classList.toggle('connected', connected);
+    dot.classList.toggle('disconnected', !connected);
+    label.textContent = connected ? 'Connected' : 'Connecting…';
+}
+if (socket) {
+    socket.on('connect',    updateConnectionDot);
+    socket.on('disconnect', updateConnectionDot);
+}
+setInterval(updateConnectionDot, 2000); // periodic sync
+
+// ================================================
+// WAIT FOR CONNECTION HELPER
+// Returns a Promise that resolves when socket connects,
+// or rejects after `ms` milliseconds.
+// ================================================
+function waitForConnection(ms = 30000) {
+    return new Promise((resolve, reject) => {
+        if (socket && socket.connected) { resolve(); return; }
+        const timer = setTimeout(() => reject(new Error('timeout')), ms);
+        socket.once('connect', () => { clearTimeout(timer); resolve(); });
+    });
+}
+
+// Helper: set a form button into loading/idle state
+function setButtonLoading(btnEl, loading, originalHTML) {
+    if (loading) {
+        btnEl.dataset.origHtml = btnEl.innerHTML;
+        btnEl.innerHTML = '<span class="btn-spinner"></span><span>Connecting…</span>';
+        btnEl.disabled = true;
+    } else {
+        btnEl.innerHTML = originalHTML || btnEl.dataset.origHtml || btnEl.innerHTML;
+        btnEl.disabled = false;
+    }
 }
 
 const AGORA_APP_ID = "0c90d8dfbde2474e9731c1d3738d6bda"; 
@@ -195,14 +253,15 @@ document.addEventListener('DOMContentLoaded', () => {
 // Handle Background/Foreground Transitions
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-        // When coming back to foreground, ensure we are still in the room
         const savedPasskey = localStorage.getItem('pulinjika_last_room');
         const savedName = localStorage.getItem('pulinjika_last_name');
-        if (savedPasskey && savedName && socket) {
+        // Only attempt re-join if we were actually in a room (activePasskey is set)
+        if (savedPasskey && savedName && activePasskey && socket) {
             if (!socket.connected) {
+                // Socket is dead – reconnect first; the 'connect' handler will re-join
                 socket.connect();
             } else {
-                // Proactively verify room still exists even if socket stayed connected
+                // Socket alive but we may have missed events while backgrounded
                 socket.emit('join-room', { name: savedName, passkey: savedPasskey });
             }
         }
@@ -214,11 +273,32 @@ document.addEventListener('visibilitychange', () => {
 // ================================================
 if (socket) {
     // Self-Healing Reconnection
+    // Only auto-rejoin if we were ALREADY in a room this session (activePasskey is set).
+    // A fresh app launch with stale localStorage should NOT auto-join — it would hit
+    // ROOM_NOT_FOUND and silently loop. The user should just see the lobby.
     socket.on('connect', () => {
-        const savedPasskey = localStorage.getItem('pulinjika_last_room');
-        const savedName = localStorage.getItem('pulinjika_last_name');
-        if (savedPasskey && savedName && currentUser.name) {
-            socket.emit('join-room', { name: savedName, passkey: savedPasskey });
+        if (activePasskey) {
+            // Mid-session reconnect: try to get back into the room we were in
+            const savedName = localStorage.getItem('pulinjika_last_name');
+            if (savedName) {
+                socket.emit('join-room', { name: savedName, passkey: activePasskey });
+            }
+        }
+        // Fresh app open: just show the lobby (DOMContentLoaded handles that)
+    });
+
+    // Notify user when disconnected and actively reconnecting
+    socket.on('disconnect', (reason) => {
+        console.warn('Socket disconnected:', reason);
+        if (activePasskey) {
+            showToast('Connection lost. Reconnecting…', '🔄', true);
+        }
+    });
+
+    socket.on('reconnect', (attempt) => {
+        console.log('Reconnected after', attempt, 'attempts');
+        if (activePasskey) {
+            showToast('Reconnected! ✅', '🟢');
         }
     });
 
@@ -378,26 +458,34 @@ if (socket) {
 
     socket.on('error', (msg) => {
         if (msg === 'ROOM_NOT_FOUND') {
-            const savedTitle = localStorage.getItem('pulinjika_last_title');
-            const savedName = localStorage.getItem('pulinjika_last_name');
+            const savedTitle   = localStorage.getItem('pulinjika_last_title');
+            const savedName    = localStorage.getItem('pulinjika_last_name');
             const savedPasskey = localStorage.getItem('pulinjika_last_room');
-            
-            if (savedTitle && savedName && savedPasskey) {
-                // If I'm an admin, I can re-create it
-                if (adminIds.includes(PERSISTENT_UID)) {
-                    socket.emit('create-room', { title: savedTitle, name: savedName, recoverPasskey: savedPasskey });
-                } else {
-                    // If I'm a listener, wait and retry joining in 5 seconds
-                    setTimeout(() => {
-                        if (localStorage.getItem('pulinjika_last_room')) {
-                            socket.emit('join-room', { name: savedName, passkey: savedPasskey });
-                        }
-                    }, 5000);
-                }
+
+            // Only attempt room recreation if:
+            //   1. We were genuinely mid-session (activePasskey is set in memory)
+            //   2. AND we are an admin who has the authority to recreate it
+            if (activePasskey && savedTitle && savedName && savedPasskey && adminIds.includes(PERSISTENT_UID)) {
+                socket.emit('create-room', { title: savedTitle, name: savedName, recoverPasskey: savedPasskey });
                 return;
             }
+
+            // All other cases (fresh app open with stale storage, listeners mid-session,
+            // or non-admin reconnects): wipe stale data and return to lobby cleanly.
+            // The old "retry in 5 seconds" loop was causing an infinite ROOM_NOT_FOUND
+            // cycle that kept the lobby hidden forever.
+            localStorage.removeItem('pulinjika_last_room');
+            localStorage.removeItem('pulinjika_last_title');
+            activePasskey = null;
+            adminIds = [];
+            document.getElementById('lobby-screen').classList.remove('hidden');
+            if (savedPasskey) {
+                // Only notify if we actually had a stale session (not a typo'd passkey)
+                showToast('Previous session expired. Start fresh! 👋', '🔄');
+            }
+            return;
         }
-        showToast(msg, "❌", true);
+        showToast(msg, '❌', true);
         if (!msg.includes('Name already taken')) {
             localStorage.removeItem('pulinjika_last_room');
         }
@@ -475,20 +563,69 @@ function enterRoom() {
 }
 
 // Actions
-document.getElementById('create-form').onsubmit = (e) => {
+document.getElementById('create-form').onsubmit = async (e) => {
     e.preventDefault();
     const title = document.getElementById('room-name-input').value.trim();
-    const name = document.getElementById('host-name-input').value.trim();
+    const name  = document.getElementById('host-name-input').value.trim();
+    const btn   = e.target.querySelector('button[type="submit"]');
     currentUser.name = name;
-    if (socket) socket.emit('create-room', { title, name });
+
+    setButtonLoading(btn, true);
+    try {
+        await waitForConnection(30000);
+    } catch {
+        setButtonLoading(btn, false);
+        showToast('Server is waking up. Please try again in 30 seconds.', '⏳', true);
+        return;
+    }
+
+    // Emit and wait up to 15s for a response
+    let responded = false;
+    const failTimer = setTimeout(() => {
+        if (!responded) {
+            setButtonLoading(btn, false);
+            showToast('No response from server. Tap Create again.', '⚠️', true);
+        }
+    }, 15000);
+
+    socket.once('room-created', () => {
+        responded = true;
+        clearTimeout(failTimer);
+        setButtonLoading(btn, false);
+    });
+
+    socket.emit('create-room', { title, name });
 };
 
-document.getElementById('join-form').onsubmit = (e) => {
+document.getElementById('join-form').onsubmit = async (e) => {
     e.preventDefault();
-    const name = document.getElementById('join-name-input').value.trim();
+    const name    = document.getElementById('join-name-input').value.trim();
     const passkey = document.getElementById('passkey-input').value.trim().toUpperCase();
+    const btn     = e.target.querySelector('button[type="submit"]');
     currentUser.name = name;
-    if (socket) socket.emit('join-room', { name, passkey });
+
+    setButtonLoading(btn, true);
+    try {
+        await waitForConnection(30000);
+    } catch {
+        setButtonLoading(btn, false);
+        showToast('Server is waking up. Please try again in 30 seconds.', '⏳', true);
+        return;
+    }
+
+    let responded = false;
+    const failTimer = setTimeout(() => {
+        if (!responded) {
+            setButtonLoading(btn, false);
+            showToast('No response from server. Tap Join again.', '⚠️', true);
+        }
+    }, 15000);
+
+    const done = () => { responded = true; clearTimeout(failTimer); setButtonLoading(btn, false); };
+    socket.once('join-success', done);
+    socket.once('error', done);
+
+    socket.emit('join-room', { name, passkey });
 };
 
 document.getElementById('enter-created-room').onclick = () => {

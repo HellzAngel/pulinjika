@@ -287,6 +287,35 @@ body {
 .clickable { cursor: pointer; }
 .clickable:active { transform: scale(0.92); }
 
+/* --- Connection Status Dot --- */
+.conn-status {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--surface); box-shadow: var(--in-sm);
+    padding: 6px 14px; border-radius: 20px;
+    margin-top: 12px; font-size: 0.78rem; font-weight: 600; color: var(--txt-m);
+}
+.conn-dot {
+    width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+    transition: background 0.4s;
+}
+.conn-dot.connected    { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.conn-dot.disconnected { background: #E6A817; animation: pulse-dot 1.2s ease-in-out infinite; }
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(230,168,23,0.4); }
+    50%       { opacity: 0.6; box-shadow: 0 0 0 5px rgba(230,168,23,0); }
+}
+
+/* --- Button spinner (loading state) --- */
+.action-btn { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.action-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none !important; }
+.btn-spinner {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-top-color: white;
+    animation: spin 0.7s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* --- Mobile Fixes --- */
 @media (max-width: 480px) {
     .room-screen { max-width: 100%; border-radius: 0; }

@@ -7,8 +7,8 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { 
     cors: { origin: "*" },
-    pingInterval: 10000,
-    pingTimeout: 5000 
+    pingInterval: 25000,  // match client keep-alive interval
+    pingTimeout: 20000    // give slow mobile connections more time
 });
 
 app.use((req, res, next) => {
@@ -266,6 +266,8 @@ io.on('connection', (socket) => {
             }
         }
     });
+    // Heartbeat – client pings every 25s to prevent Render from sleeping
+    socket.on('heartbeat', () => { /* acknowledged */ });
 });
 
 const PORT = process.env.PORT || 3000;
