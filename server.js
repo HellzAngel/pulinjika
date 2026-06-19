@@ -142,7 +142,10 @@ io.on('connection', (socket) => {
         const room = rooms.get(data.passkey);
         if (room) {
             const p = room.participants.find(p => p.id === userId);
-            if (p) { p.isMuted = data.isMuted; io.to(data.passkey).emit('user-muted', { userId, isMuted: data.isMuted }); }
+            // Update server state and broadcast to everyone EXCEPT the sender.
+            // The sender already updated their own UI & audio via the button click handler;
+            // echoing back to them causes conflicting state updates on their client.
+            if (p) { p.isMuted = data.isMuted; socket.to(data.passkey).emit('user-muted', { userId, isMuted: data.isMuted }); }
         }
     });
 
